@@ -277,6 +277,7 @@ public abstract class Accessor {
 
         public abstract boolean isPrimitiveTarget(Class<?> c);
 
+        public abstract boolean isGuestToHostRootNode(RootNode root);
     }
 
     public abstract static class EngineSupport extends Support {
@@ -1236,7 +1237,7 @@ public abstract class Accessor {
     /**
      * Returns a {@link TVMCI} obtained from {@link TruffleRuntime}.
      *
-     * NOTE: this method is called reflectively by {@code TruffleFeature} to initialize
+     * NOTE: this method is called reflectively by {@code TruffleBaseFeature} to initialize
      * {@code tvmci} instance.
      */
     private static TVMCI getTVMCI() {

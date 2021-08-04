@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -38,26 +38,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.graalvm.wasm.api;
+package org.graalvm.wasm.globals;
 
-public class MemoryDescriptor extends Dictionary {
-    private final Integer initial;
-    private final Integer maximum;
+import org.graalvm.wasm.GlobalRegistry;
+import org.graalvm.wasm.api.ValueType;
+import org.graalvm.wasm.exception.Failure;
+import org.graalvm.wasm.exception.WasmException;
 
-    public MemoryDescriptor(Integer initial, Integer maximum) {
-        this.initial = initial;
-        this.maximum = maximum;
-        addMembers(new Object[]{
-                        "initial", this.initial,
-                        "maximum", this.maximum,
-        });
+public class ExportedWasmGlobal extends WasmGlobal {
+    private final GlobalRegistry globals;
+    private final int address;
+
+    public ExportedWasmGlobal(ValueType valueType, boolean mutable, GlobalRegistry globals, int address) {
+        super(valueType, mutable);
+        this.globals = globals;
+        this.address = address;
     }
 
-    public int initial() {
-        return initial;
+    @Override
+    public Object getValue() {
+        switch (getValueType()) {
+            case i32:
+                return globals.loadAsInt(address);
+            case i64:
+                return globals.loadAsLong(address);
+            case f32:
+                return globals.loadAsFloat(address);
+            case f64:
+                return globals.loadAsDouble(address);
+        }
+        throw WasmException.create(Failure.UNSPECIFIED_INTERNAL, "Should not reach here");
     }
 
-    public int maximum() {
-        return maximum;
+    @Override
+    public void setValue(Object value) {
+        // TODO (GR-32924): Implement setter for imported globals
+        throw WasmException.create(Failure.UNSPECIFIED_INTERNAL, "Should not reach here");
     }
 }
