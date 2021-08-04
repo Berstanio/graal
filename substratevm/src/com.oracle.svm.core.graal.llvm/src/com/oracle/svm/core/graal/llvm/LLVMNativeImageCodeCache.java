@@ -387,6 +387,12 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     }
 
     private void nativeLink(DebugContext debug, String outputPath, List<String> inputPaths) {
+        //Temporary Workaround for to many arguments. Needs to be done properly with e.g. "getconf ARG_MAX"
+        if (String.join(" ", inputPaths).getBytes().length > 200000) {
+            nativeLink(debug, outputPath, inputPaths.subList(0, inputPaths.size() / 2));
+            nativeLink(debug, outputPath, inputPaths.subList(inputPaths.size() / 2, inputPaths.size()));
+            return;
+        }
         List<String> cmd = new ArrayList<>();
         cmd.add((LLVMOptions.CustomLD.hasBeenSet()) ? LLVMOptions.CustomLD.getValue() : "ld");
         cmd.add("-r");
