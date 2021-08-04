@@ -188,9 +188,6 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         classIdMap.get(className).add(i);
                     }
                 }
-                if (classIdMap.size() != 775) {
-                    throw shouldNotReachHere();
-                }
 
                 executor.forEach(classIdMap.size(), batchId -> (debugContext) -> {
                     @SuppressWarnings("unchecked") List<String> batchInputs = ((ArrayList<Integer>) classIdMap.values().toArray()[batchId]).stream().map(this::getBitcodeFilename)
