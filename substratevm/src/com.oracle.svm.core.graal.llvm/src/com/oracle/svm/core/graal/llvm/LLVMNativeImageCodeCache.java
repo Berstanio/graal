@@ -27,9 +27,11 @@ package com.oracle.svm.core.graal.llvm;
 import static com.oracle.svm.core.util.VMError.shouldNotReachHere;
 import static com.oracle.svm.hosted.image.NativeImage.RWDATA_CGLOBALS_PARTITION_OFFSET;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,6 +44,8 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import org.graalvm.compiler.code.CompilationResult;
 import org.graalvm.compiler.core.common.NumUtil;
@@ -72,6 +76,8 @@ import com.oracle.svm.core.graal.llvm.util.LLVMToolchain;
 import com.oracle.svm.core.graal.llvm.util.LLVMToolchain.RunFailureException;
 import com.oracle.svm.core.heap.SubstrateReferenceMap;
 import com.oracle.svm.core.jdk.UninterruptibleUtils.AtomicInteger;
+import com.oracle.svm.core.option.OptionUtils;
+import com.oracle.svm.hosted.NativeImageOptions;
 import com.oracle.svm.hosted.image.NativeImage.NativeTextSectionImpl;
 import com.oracle.svm.hosted.image.NativeImageCodeCache;
 import com.oracle.svm.hosted.image.NativeImageHeap;
@@ -82,6 +88,7 @@ import com.oracle.svm.hosted.meta.MethodPointer;
 import jdk.vm.ci.code.site.Call;
 import jdk.vm.ci.code.site.DataPatch;
 import jdk.vm.ci.code.site.DataSectionReference;
+import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 @Platforms(Platform.HOSTED_ONLY.class)
 public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
@@ -91,6 +98,9 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     private final LLVMObjectFileReader objectFileReader;
     private final List<ObjectFile.Symbol> globalSymbols = new ArrayList<>();
     private final StackMapDumper stackMapDumper;
+    //Find better variable name
+    private final LinkedHashMap<String, ArrayList<Integer>> classIdMap = new LinkedHashMap<>();
+
 
     LLVMNativeImageCodeCache(Map<HostedMethod, CompilationResult> compilations, NativeImageHeap imageHeap, Platform targetPlatform, Path tempDir) {
         super(compilations, imageHeap, targetPlatform);
@@ -148,41 +158,136 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     }
 
     private int createBitcodeBatches(BatchExecutor executor, DebugContext debug) {
-        batchSize = LLVMOptions.LLVMMaxFunctionsPerBatch.getValue();
-        int numThreads = executor.executor.parallelism();
-        int idealSize = NumUtil.divideAndRoundUp(methodIndex.length, numThreads);
-        if (idealSize < batchSize) {
-            batchSize = idealSize;
-        }
+        if (LLVMOptions.LLVMMaxFunctionsPerBatch.getValue() == -1) {
+            if (NativeImageOptions.TempDirectory.hasBeenSet()) {
+                for (int i = 0; i < methodIndex.length; i++) {
 
-        if (batchSize == 0) {
-            batchSize = methodIndex.length;
-        }
-        int numBatches = NumUtil.divideAndRoundUp(methodIndex.length, batchSize);
-        if (batchSize > 1) {
-            /* Avoid empty batches with small batch sizes */
-            numBatches -= (numBatches * batchSize - methodIndex.length) / batchSize;
+                    String className;
+                    if (methodIndex[i].getWrapped().getWrapped().getClass().getSimpleName().equals("JNIJavaCallWrapperMethod")){
+                        try {
+                            Field f = methodIndex[i].getWrapped().getWrapped().getClass().getDeclaredField("targetMethod");
+                            f.setAccessible(true);
+                            ResolvedJavaMethod resolvedJavaMethod = (ResolvedJavaMethod) f.get(methodIndex[i].getWrapped().getWrapped());
+                            className = resolvedJavaMethod.getDeclaringClass().getName();
+                            className = className.substring(1, className.length() - 1);
+                        } catch (NoSuchFieldException | IllegalAccessException e) {
+                            throw shouldNotReachHere(e);
+                        }
+                    }else {
+                        className = methodIndex[i].getDeclaringClass().getName();
+                        className = className.substring(1, className.length() - 1);
+                    }
 
-            executor.forEach(numBatches, batchId -> (debugContext) -> {
-                List<String> batchInputs = IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).mapToObj(this::getBitcodeFilename)
-                                .collect(Collectors.toList());
-                llvmLink(debug, getBatchBitcodeFilename(batchId), batchInputs);
-            });
-        }
+                    className = className.replace("/", ".").split("\\$")[0];
 
-        return numBatches;
+                    if (!classIdMap.containsKey(className)) {
+                        ArrayList<Integer> ids = new ArrayList<>();
+                        ids.add(i);
+                        classIdMap.put(className, ids);
+                    } else {
+                        classIdMap.get(className).add(i);
+                    }
+                }
+                if (classIdMap.size() != 775) {
+                    throw shouldNotReachHere();
+                }
+
+                executor.forEach(classIdMap.size(), batchId -> (debugContext) -> {
+                    @SuppressWarnings("unchecked") List<String> batchInputs = ((ArrayList<Integer>) classIdMap.values().toArray()[batchId]).stream().map(this::getBitcodeFilename)
+                            .collect(Collectors.toList());
+                    llvmLink(debug, getBatchBitcodeFilename(batchId), batchInputs);
+                });
+
+                return classIdMap.size();
+            } else {
+                System.err.println("TempDirectory needs to be set for using -H:+LLVMTryOptimizedRecompilation");
+                throw shouldNotReachHere("TempDirectory needs to be set for using -H:+LLVMTryOptimizedRecompilation");
+            }
+        }else {
+            batchSize = LLVMOptions.LLVMMaxFunctionsPerBatch.getValue();
+            int numThreads = executor.executor.parallelism();
+            int idealSize = NumUtil.divideAndRoundUp(methodIndex.length, numThreads);
+            if (idealSize < batchSize) {
+                batchSize = idealSize;
+            }
+
+            if (batchSize == 0) {
+                batchSize = methodIndex.length;
+            }
+            int numBatches = NumUtil.divideAndRoundUp(methodIndex.length, batchSize);
+            if (batchSize > 1) {
+                /* Avoid empty batches with small batch sizes */
+                numBatches -= (numBatches * batchSize - methodIndex.length) / batchSize;
+
+                executor.forEach(numBatches, batchId -> (debugContext) -> {
+                    List<String> batchInputs = IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).mapToObj(this::getBitcodeFilename)
+                            .collect(Collectors.toList());
+                    llvmLink(debug, getBatchBitcodeFilename(batchId), batchInputs);
+                });
+            }
+            return numBatches;
+        }
     }
 
     private void compileBitcodeBatches(BatchExecutor executor, DebugContext debug, int numBatches) {
         stackMapDumper.startDumpingFunctions();
+        if (LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+            File tmp = new File(NativeImageOptions.TempDirectory.getValue());
+            String[] directories = tmp.list((current, name) -> new File(current, name).isDirectory());
+            String dir = Arrays.stream(directories).filter(s -> s.startsWith("SVM-") && !s.equals(basePath.getParent().toFile().getName())).max(String::compareTo).orElse(null);
+            List<String> allClasses = new ArrayList<>(classIdMap.keySet());
+            if (dir != null) {
+                File lastDir = new File(NativeImageOptions.TempDirectory.getValue() + "/" + dir + "/llvm/");
+                HashMap<String, File> compFileMap = new HashMap<>();
 
-        executor.forEach(numBatches, batchId -> (debugContext) -> {
-            llvmOptimize(debug, getBatchOptimizedFilename(batchId), getBatchBitcodeFilename(batchId));
-            llvmCompile(debug, getBatchCompiledFilename(batchId), getBatchOptimizedFilename(batchId));
+                Arrays.stream(lastDir.listFiles((dir1, name) -> name.matches("b-.*(?<!-o)\\.bc"))).forEach(file -> compFileMap.put(file.getName(), file));
+                List<String> recompileClasses = OptionUtils.flatten(",", LLVMOptions.LLVMOnlyRecompileClasses.getValue().split(","));
+                allClasses.removeIf(s -> {
+                    if (recompileClasses.contains(s)){
+                        System.out.println("Recompiling " + s + " because it is defined over LLVMOnlyRecompileClasses!");
+                        return false;
+                    }
+                    File file = basePath.resolve("b-" + s + ".bc").toFile();
+                    File comp = compFileMap.get(file.getName());
+                    if (comp == null){
+                        System.out.println("Compiling " + s + " because it is new!");
+                        return false;
+                    }
+                    long diff = Math.abs(file.length() - comp.length());
+                    if (diff > 1000) {
+                        System.out.println("Recompiling " + s + " because it changed to much!");
+                        return false;
+                    }
+                    try {
+                        Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
+                        LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
+                        /*classIdMap.get(s).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id););*/
+                        return true;
+                    } catch (Throwable e) {
+                        System.err.println("Failed to reuse object file of class " + s + "!");
+                        e.printStackTrace();
+                        return false;
+                    }
+                });
+            }
+            System.out.println("Recompiling " + allClasses.size() + " classes!");
+            executor.forEach(allClasses.size(), batchId -> (debugContext) -> {
+                llvmOptimize(debug, "b-" + allClasses.get(batchId) + "-o.bc", "b-" + allClasses.get(batchId) + ".bc");
+                llvmCompile(debug, "b-" + allClasses.get(batchId) + ".o", "b-" + allClasses.get(batchId) + "-o.bc");
 
-            LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(getBatchCompiledPath(batchId));
-            IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
-        });
+                LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + allClasses.get(batchId) + ".o"));
+                classIdMap.get(allClasses.get(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
+            });
+
+        } else {
+            executor.forEach(numBatches, batchId -> (debugContext) -> {
+                llvmOptimize(debug, getBatchOptimizedFilename(batchId), getBatchBitcodeFilename(batchId));
+                llvmCompile(debug, getBatchCompiledFilename(batchId), getBatchOptimizedFilename(batchId));
+
+                LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(getBatchCompiledPath(batchId));
+                IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
+            });
+        }
     }
 
     private void linkCompiledBatches(BatchExecutor executor, DebugContext debug, int numBatches) {
@@ -205,9 +310,10 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         compilations.forEach((method, compilation) -> compilationsByStart.put(method.getCodeAddressOffset(), compilation));
         stackMapDumper.dumpOffsets(textSectionInfo);
         stackMapDumper.close();
-
-        HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
-        buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
+        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+            HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
+            buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
+        }
     }
 
     private void llvmOptimize(DebugContext debug, String outputPath, String inputPath) {
@@ -308,11 +414,19 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     }
 
     private String getBatchBitcodeFilename(int id) {
-        return ((batchSize == 1) ? "f" : "b") + id + ".bc";
+        if (LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+            return "b-" + classIdMap.keySet().toArray()[id].toString() + ".bc";
+        } else {
+            return ((batchSize == 1) ? "f" : "b") + id + ".bc";
+        }
     }
 
     private String getBatchOptimizedFilename(int id) {
-        return ((batchSize == 1) ? "f" : "b") + id + "o.bc";
+        if (LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+            return "b-" + classIdMap.keySet().toArray()[id].toString() + "-o.bc";
+        } else {
+            return ((batchSize == 1) ? "f" : "b") + id + "o.bc";
+        }
     }
 
     private Path getBatchCompiledPath(int id) {
@@ -320,7 +434,11 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     }
 
     private String getBatchCompiledFilename(int id) {
-        return ((batchSize == 1) ? "f" : "b") + id + ".o";
+        if (LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+            return "b-" + classIdMap.keySet().toArray()[id].toString() + ".o";
+        } else {
+            return ((batchSize == 1) ? "f" : "b") + id + ".o";
+        }
     }
 
     private Path getLinkedPath() {
@@ -356,7 +474,11 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                     function = methodIndex[id].getQualifiedName();
                     break;
                 case 'b':
-                    function = "batch " + id + " (f" + getBatchStart(id) + "-f" + getBatchEnd(id) + "). Use -H:LLVMMaxFunctionsPerBatch=1 to compile each method individually.";
+                    if (LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
+                        function = "batch " + id + " (" + ((ArrayList<Integer>) classIdMap.values().toArray()[id]).stream().map(integer -> "" + integer).collect(Collectors.joining(", ")) + "). Use -H:LLVMMaxFunctionsPerBatch=1 to compile each method individually.";
+                    } else {
+                        function = "batch " + id + " (f" + getBatchStart(id) + "-f" + getBatchEnd(id) + "). Use -H:LLVMMaxFunctionsPerBatch=1 to compile each method individually.";
+                    }
                     break;
                 default:
                     throw shouldNotReachHere();

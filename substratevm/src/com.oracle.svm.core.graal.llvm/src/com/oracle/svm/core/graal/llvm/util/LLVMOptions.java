@@ -43,6 +43,9 @@ public class LLVMOptions {
     @Option(help = "Maximum size of batches used for LLVM compilation. 0 means a single batch, 1 means all functions separately", type = OptionType.Debug)//
     public static final HostedOptionKey<Integer> LLVMMaxFunctionsPerBatch = new HostedOptionKey<>(1000);
 
+    @Option(help = "Specifiy full qualified class names that should be recompiled. -H:TempDirectory needs to be set", type = OptionType.Expert)//
+    public static final HostedOptionKey<String> LLVMOnlyRecompileClasses = new HostedOptionKey<>(null);
+
     @Option(help = "Path to a custom ld binary for LLVM linking")//
     public static final HostedOptionKey<String> CustomLD = new HostedOptionKey<>("");
 
@@ -52,5 +55,5 @@ public class LLVMOptions {
     @Option(help = "Return special registers from functions in LLVM bitcode. This may decrease performance if the target doesn't support returning multiple values from a function.")//
     public static final HostedOptionKey<Boolean> ReturnSpecialRegs = new HostedOptionKey<>(true);
 
-    public static final List<HostedOptionKey<?>> allOptions = Arrays.asList(IncludeLLVMDebugInfo, DumpLLVMStackMap, LLVMMaxFunctionsPerBatch, CustomLD, BitcodeOptimizations, ReturnSpecialRegs);
+    public static final List<HostedOptionKey<?>> allOptions = Arrays.asList(IncludeLLVMDebugInfo, DumpLLVMStackMap, LLVMMaxFunctionsPerBatch, LLVMOnlyRecompileClasses, CustomLD, BitcodeOptimizations, ReturnSpecialRegs);
 }
