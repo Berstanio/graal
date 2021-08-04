@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.graalvm.home.HomeFinder;
 
@@ -58,6 +59,12 @@ public class LLVMToolchain {
 
         Process llvmProcess = null;
         try {
+            //Temporary Workaround for to many arguments. Needs to be done properly with e.g. "getconf ARG_MAX"
+            if (String.join(" ", cmd).getBytes().length > 200000) {
+                String out1 = runCommand(directory, cmd.subList(0, cmd.size() / 2));
+                String out2 = runCommand(directory, cmd.subList(cmd.size() / 2, cmd.size()));
+                return out1 + "\n" + out2;
+            }
             ProcessBuilder llvmCommand = FileUtils.prepareCommand(cmd, directory);
             llvmCommand.redirectErrorStream(true);
 
