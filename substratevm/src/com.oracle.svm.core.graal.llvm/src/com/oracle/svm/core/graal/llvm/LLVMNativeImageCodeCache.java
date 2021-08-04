@@ -398,7 +398,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
             LLVMToolchain.runCommand(basePath, cmd);
         } catch (RunFailureException e) {
             debug.log("%s", e.getOutput());
-            e.printStackTrace();
+            System.out.println(e.getOutput());
             throw new GraalError("Native linking failed into " + getFunctionName(outputPath) + ": " + e.getStatus());
         }
     }
