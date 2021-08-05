@@ -290,24 +290,34 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     private void linkCompiledBatches(BatchExecutor executor, DebugContext debug, int numBatches) {
         List<String> compiledBatches = IntStream.range(0, numBatches).mapToObj(this::getBatchCompiledFilename).collect(Collectors.toList());
         nativeLink(debug, getLinkedFilename(), compiledBatches);
-        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
 
         LLVMTextSectionInfo textSectionInfo = objectFileReader.parseCode(getLinkedPath());
 
-        executor.forEach(compilations.entrySet(), entry -> (debugContext) -> {
-            HostedMethod method = entry.getKey();
-            int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
-            int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
-            int functionSize = nextFunctionStartOffset - offset;
+        if (textSectionInfo == null) {
+            System.out.println("TextSection is null");
+            return;
+        }else {
 
-            CompilationResult compilation = entry.getValue();
-            compilation.setTargetCode(null, functionSize);
-            method.setCodeAddressOffset(offset);
-        });
+            executor.forEach(compilations.entrySet(), entry -> (debugContext) -> {
+                HostedMethod method = entry.getKey();
+                if (method == null) {
+                    System.out.println("mehtod null");
+                    return;
+                }
+                int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
+                int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
+                int functionSize = nextFunctionStartOffset - offset;
+
+                CompilationResult compilation = entry.getValue();
+                compilation.setTargetCode(null, functionSize);
+                method.setCodeAddressOffset(offset);
+            });
+        }
 
         compilations.forEach((method, compilation) -> compilationsByStart.put(method.getCodeAddressOffset(), compilation));
         stackMapDumper.dumpOffsets(textSectionInfo);
         stackMapDumper.close();
+        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
             HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
             buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
         }
