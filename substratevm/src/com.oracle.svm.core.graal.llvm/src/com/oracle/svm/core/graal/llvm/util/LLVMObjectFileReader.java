@@ -224,6 +224,18 @@ public class LLVMObjectFileReader {
         }
 
         public int getOffset(String methodName) {
+            if (symbolToOffset == null) {
+                System.out.println("symbolToOffset is null");
+                return 0;
+            }
+            if (SYMBOL_PREFIX == null){
+                System.out.println("SYMBOL_PREFIX is null");
+                return 0;
+            }
+            if (methodName == null) {
+                System.out.println("methodName is null");
+                return 0;
+            }
             return symbolToOffset.get(SYMBOL_PREFIX + methodName);
         }
 
