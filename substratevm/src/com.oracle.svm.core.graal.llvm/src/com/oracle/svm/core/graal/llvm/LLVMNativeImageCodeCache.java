@@ -293,33 +293,21 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
         LLVMTextSectionInfo textSectionInfo = objectFileReader.parseCode(getLinkedPath());
 
-        if (textSectionInfo == null) {
-            System.out.println("TextSection is null");
-            return;
-        }else {
+        executor.forEach(compilations.entrySet(), entry -> (debugContext) -> {
+            try {
+                HostedMethod method = entry.getKey();
+                int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
+                int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
+                int functionSize = nextFunctionStartOffset - offset;
 
-            executor.forEach(compilations.entrySet(), entry -> (debugContext) -> {
-                try {
-                    HostedMethod method = entry.getKey();
-                    if (method == null) {
-                        System.out.println("mehtod null");
-                        return;
-                    }
-                    if (SubstrateUtil.uniqueShortName(method) == null) {
-                        System.out.println(method.getUniqueShortName() + " is null");
-                    }
-                    int offset = /*textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method))*/0;
-                    int nextFunctionStartOffset = /*textSectionInfo.getNextOffset(offset)*/0;
-                    int functionSize = nextFunctionStartOffset - offset;
+                CompilationResult compilation = entry.getValue();
+                compilation.setTargetCode(null, functionSize);
+                method.setCodeAddressOffset(offset);
+            }catch (Throwable e){
+                e.printStackTrace();
+            }
+        });
 
-                    CompilationResult compilation = entry.getValue();
-                    compilation.setTargetCode(null, functionSize);
-                    method.setCodeAddressOffset(offset);
-                }catch (Throwable e){
-                    e.printStackTrace();
-                }
-            });
-        }
 
         compilations.forEach((method, compilation) -> compilationsByStart.put(method.getCodeAddressOffset(), compilation));
         stackMapDumper.dumpOffsets(textSectionInfo);
