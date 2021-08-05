@@ -299,21 +299,25 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         }else {
 
             executor.forEach(compilations.entrySet(), entry -> (debugContext) -> {
-                HostedMethod method = entry.getKey();
-                if (method == null) {
-                    System.out.println("mehtod null");
-                    return;
-                }
-                if (SubstrateUtil.uniqueShortName(method) == null) {
-                    System.out.println(method.getUniqueShortName() + " is null");
-                }
-                int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
-                int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
-                int functionSize = nextFunctionStartOffset - offset;
+                try {
+                    HostedMethod method = entry.getKey();
+                    if (method == null) {
+                        System.out.println("mehtod null");
+                        return;
+                    }
+                    if (SubstrateUtil.uniqueShortName(method) == null) {
+                        System.out.println(method.getUniqueShortName() + " is null");
+                    }
+                    int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
+                    int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
+                    int functionSize = nextFunctionStartOffset - offset;
 
-                CompilationResult compilation = entry.getValue();
-                compilation.setTargetCode(null, functionSize);
-                method.setCodeAddressOffset(offset);
+                    CompilationResult compilation = entry.getValue();
+                    compilation.setTargetCode(null, functionSize);
+                    method.setCodeAddressOffset(offset);
+                }catch (Throwable e){
+                    e.printStackTrace();
+                }
             });
         }
 
