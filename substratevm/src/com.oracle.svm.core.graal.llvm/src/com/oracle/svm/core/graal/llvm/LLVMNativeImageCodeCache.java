@@ -290,6 +290,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     private void linkCompiledBatches(BatchExecutor executor, DebugContext debug, int numBatches) {
         List<String> compiledBatches = IntStream.range(0, numBatches).mapToObj(this::getBatchCompiledFilename).collect(Collectors.toList());
         nativeLink(debug, getLinkedFilename(), compiledBatches);
+        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
 
         LLVMTextSectionInfo textSectionInfo = objectFileReader.parseCode(getLinkedPath());
 
@@ -307,7 +308,6 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         compilations.forEach((method, compilation) -> compilationsByStart.put(method.getCodeAddressOffset(), compilation));
         stackMapDumper.dumpOffsets(textSectionInfo);
         stackMapDumper.close();
-        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
             HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
             buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
         }
