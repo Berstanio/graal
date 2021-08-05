@@ -308,8 +308,8 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                     if (SubstrateUtil.uniqueShortName(method) == null) {
                         System.out.println(method.getUniqueShortName() + " is null");
                     }
-                    int offset = textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method));
-                    int nextFunctionStartOffset = textSectionInfo.getNextOffset(offset);
+                    int offset = /*textSectionInfo.getOffset(SubstrateUtil.uniqueShortName(method))*/0;
+                    int nextFunctionStartOffset = /*textSectionInfo.getNextOffset(offset)*/0;
                     int functionSize = nextFunctionStartOffset - offset;
 
                     CompilationResult compilation = entry.getValue();
