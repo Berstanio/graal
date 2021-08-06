@@ -332,10 +332,9 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
         compilations.forEach((method, compilation) -> compilationsByStart.put(method.getCodeAddressOffset(), compilation));
         stackMapDumper.dumpOffsets(textSectionInfo);
         stackMapDumper.close();
-        if (!LLVMOptions.LLVMOnlyRecompileClasses.hasBeenSet()) {
-            HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
-            buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
-        }
+        HostedMethod firstMethod = (HostedMethod) getFirstCompilation().getMethods()[0];
+        buildRuntimeMetadata(MethodPointer.factory(firstMethod), WordFactory.signed(textSectionInfo.getCodeSize()));
+
     }
 
     private void llvmOptimize(DebugContext debug, String outputPath, String inputPath) {
