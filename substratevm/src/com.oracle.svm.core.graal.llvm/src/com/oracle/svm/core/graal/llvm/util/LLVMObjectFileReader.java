@@ -160,21 +160,26 @@ public class LLVMObjectFileReader {
         return new LLVMStackMapInfo(stackMap.asByteBuffer());
     }
 
-    public void readStackMap(LLVMStackMapInfo info, CompilationResult compilation, ResolvedJavaMethod method, int id) {
+    public void readStackMap(LLVMStackMapInfo info, CompilationResult compilation, ResolvedJavaMethod method, long id) {
         String methodSymbolName = SYMBOL_PREFIX + SubstrateUtil.uniqueShortName(method);
 
-        long startPatchpointID = compilation.getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
-                        .orElseThrow(() -> new GraalError("no method start infopoint: " + methodSymbolName)).pcOffset;
+
+        long startPatchpointID;
+        if (id == -1) {
+            startPatchpointID = compilation.getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
+                    .orElseThrow(() -> new GraalError("no method start infopoint: " + methodSymbolName)).pcOffset;
+        }else {
+            startPatchpointID = id;
+        }
         int totalFrameSize = NumUtil.safeToInt(info.getFunctionStackSize(startPatchpointID) + LLVMTargetSpecific.get().getCallFrameSeparation());
         compilation.setTotalFrameSize(totalFrameSize);
-        stackMapDumper.startDumpingFunction(methodSymbolName, id, totalFrameSize);
+        stackMapDumper.startDumpingFunction(methodSymbolName, (int) id, totalFrameSize);
 
-        List<Infopoint> newInfopoints = new ArrayList<>();
+        /*List<Infopoint> newInfopoints = new ArrayList<>();
         for (Infopoint infopoint : compilation.getInfopoints()) {
             if (infopoint instanceof Call) {
                 Call call = (Call) infopoint;
 
-                /* Optimizations might have duplicated some calls. */
                 for (int actualPcOffset : info.getPatchpointOffsets(call.pcOffset)) {
                     SubstrateReferenceMap referenceMap = new SubstrateReferenceMap();
                     info.forEachStatepointOffset(call.pcOffset, actualPcOffset, referenceMap::markReferenceAtOffset);
@@ -186,7 +191,7 @@ public class LLVMObjectFileReader {
         stackMapDumper.endDumpingFunction();
 
         compilation.clearInfopoints();
-        newInfopoints.forEach(compilation::addInfopoint);
+        newInfopoints.forEach(compilation::addInfopoint);*/
     }
 
     private static DebugInfo copyWithReferenceMap(DebugInfo debugInfo, ReferenceMap referenceMap) {

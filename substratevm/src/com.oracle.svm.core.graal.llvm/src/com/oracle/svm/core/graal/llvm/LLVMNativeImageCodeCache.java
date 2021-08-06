@@ -32,6 +32,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import java.util.stream.IntStream;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
+import jdk.vm.ci.code.site.InfopointReason;
 import org.graalvm.compiler.code.CompilationResult;
 import org.graalvm.compiler.core.common.NumUtil;
 import org.graalvm.compiler.debug.DebugContext;
@@ -258,7 +260,15 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                     try {
                         Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
                         LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
-                        /*classIdMap.get(s).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id););*/
+                        classIdMap.get(s).forEach(id -> {
+                            try {
+                                Files.copy(new File(lastDir, SubstrateUtil.uniqueShortName(methodIndex[id])).toPath(), basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id])));
+                                long i = Long.parseLong(Files.readAllLines(basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id]))).get(0));
+                                objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], i);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
                         return true;
                     } catch (Throwable e) {
                         System.err.println("Failed to reuse object file of class " + s + "!");
@@ -273,7 +283,17 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 llvmCompile(debug, "b-" + allClasses.get(batchId) + ".o", "b-" + allClasses.get(batchId) + "-o.bc");
 
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + allClasses.get(batchId) + ".o"));
-                classIdMap.get(allClasses.get(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
+                classIdMap.get(allClasses.get(batchId)).forEach(id -> {
+                    long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
+                            .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
+                    try {
+                        Files.write(basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id])), (startPatchPoint + "").getBytes(StandardCharsets.UTF_8));
+                        objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                });
             });
 
         } else {
@@ -282,7 +302,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 llvmCompile(debug, getBatchCompiledFilename(batchId), getBatchOptimizedFilename(batchId));
 
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(getBatchCompiledPath(batchId));
-                IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
+                IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1));
             });
         }
     }
