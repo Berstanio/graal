@@ -284,15 +284,15 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + allClasses.get(batchId) + ".o"));
                 classIdMap.get(allClasses.get(batchId)).forEach(id -> {
-                    long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
-                            .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
                     try {
+                        long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
+                                .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
+                        //Todo Name to long, maybe put into one file
                         Files.write(basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id])), (startPatchPoint + "").getBytes(StandardCharsets.UTF_8));
-                        objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-
+                    objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1);
                 });
             });
 
