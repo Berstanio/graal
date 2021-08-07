@@ -35,6 +35,7 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -235,8 +236,21 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
             String[] directories = tmp.list((current, name) -> new File(current, name).isDirectory());
             String dir = Arrays.stream(directories).filter(s -> s.startsWith("SVM-") && !s.equals(basePath.getParent().toFile().getName())).max(String::compareTo).orElse(null);
             List<String> allClasses = new ArrayList<>(classIdMap.keySet());
+            HashMap<String, Long> methodPatchpointMap = new HashMap<>();
             if (dir != null) {
                 File lastDir = new File(NativeImageOptions.TempDirectory.getValue() + "/" + dir + "/llvm/");
+                if (new File(lastDir, "patchPoints.txt").exists()) {
+                    try {
+                        Files.copy(new File(lastDir, "patchPoints.txt").toPath(), basePath.resolve("patchPoints.txt"));
+                        Files.readAllLines(basePath.resolve("patchPoints.txt")).stream().forEach(s -> {
+                            String[] split = s.split(";");
+                            methodPatchpointMap.put(split[0], Long.parseLong(split[1]));
+                        });
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 HashMap<String, File> compFileMap = new HashMap<>();
 
                 Arrays.stream(lastDir.listFiles((dir1, name) -> name.matches("b-.*(?<!-o)\\.bc"))).forEach(file -> compFileMap.put(file.getName(), file));
@@ -261,13 +275,8 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
                         LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
                         classIdMap.get(s).forEach(id -> {
-                            try {
-                                Files.copy(new File(lastDir, SubstrateUtil.uniqueShortName(methodIndex[id])).toPath(), basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id])));
-                                long i = Long.parseLong(Files.readAllLines(basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id]))).get(0));
+                                long i = methodPatchpointMap.get(SubstrateUtil.uniqueShortName(methodIndex[id]));
                                 objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], i);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
                         });
                         return true;
                     } catch (Throwable e) {
@@ -283,18 +292,25 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 llvmCompile(debug, "b-" + allClasses.get(batchId) + ".o", "b-" + allClasses.get(batchId) + "-o.bc");
 
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + allClasses.get(batchId) + ".o"));
+
                 classIdMap.get(allClasses.get(batchId)).forEach(id -> {
-                    try {
-                        long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
-                                .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
-                        //Todo Name to long, maybe put into one file
-                        Files.write(basePath.resolve(SubstrateUtil.uniqueShortName(methodIndex[id])), (startPatchPoint + "").getBytes(StandardCharsets.UTF_8));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
+                            .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
+                    //Todo Name to long, maybe put into one file
+                    methodPatchpointMap.put(SubstrateUtil.uniqueShortName(methodIndex[id]), startPatchPoint);
+
                     objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1);
                 });
             });
+            StringBuilder s = new StringBuilder();
+            methodPatchpointMap.forEach((s1, aLong) -> {
+                s.append(s1).append(";").append(aLong).append("\n");
+            });
+            try {
+                Files.write(basePath.resolve("patchPoints.txt"), (s.toString()).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
         } else {
             executor.forEach(numBatches, batchId -> (debugContext) -> {
