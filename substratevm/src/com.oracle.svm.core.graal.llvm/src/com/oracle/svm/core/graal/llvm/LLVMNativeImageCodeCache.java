@@ -276,7 +276,6 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         return false;
                     }
                     HashMap<Integer, List<Infopoint>> infpointSafe = new HashMap<>();
-
                     try {
                         Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
                         LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
@@ -288,7 +287,16 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                             infpointSafe.put(id, toSort);
 
                             if (toSort.size() - i.length != 0) {
-                                System.out.println("Unglich 0 für " + (toSort.size() - i.length) + " " + s);
+                                System.err.println("Failed to reuse object file of class " + s + "!");
+                                infpointSafe.forEach((integer, infopoints) -> {
+                                    compilations.get(methodIndex[integer]).clearInfopoints();
+                                    infopoints.forEach(compilations.get(methodIndex[integer])::addInfopoint);
+                                });
+                                try {
+                                    Files.deleteIfExists(basePath.resolve("b-" + s + ".o"));
+                                } catch (IOException ex) {
+                                    ex.printStackTrace();
+                                }
                                 return false;
                             }
 
@@ -305,7 +313,6 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
                             compilations.get(methodIndex[id]).clearInfopoints();
                             newInfoPoints.forEach(compilations.get(methodIndex[id])::addInfopoint);
-
                         }
                         classIdMap.get(s).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
                         return true;
