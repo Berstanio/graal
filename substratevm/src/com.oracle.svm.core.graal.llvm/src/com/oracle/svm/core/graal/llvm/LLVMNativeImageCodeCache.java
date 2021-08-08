@@ -275,14 +275,22 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         System.out.println("Recompiling " + s + " because it changed to much!");
                         return false;
                     }
+                    HashMap<Integer, List<Infopoint>> infpointSafe = new HashMap<>();
+
                     try {
                         Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
                         LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
-                        classIdMap.get(s).forEach(id -> {
+                        for (Integer id : classIdMap.get(s)) {
                             Long[] i = methodPatchpointMap.get(SubstrateUtil.uniqueShortName(methodIndex[id]));
 
                             List<Infopoint> newInfoPoints = new ArrayList<>();
                             List<Infopoint> toSort = new ArrayList<>(compilations.get(methodIndex[id]).getInfopoints());
+                            infpointSafe.put(id, toSort);
+
+                            if (toSort.size() - i.length != 0) {
+                                System.out.println("Unglich 0 für " + (toSort.size() - i.length) + " " + s);
+                                return false;
+                            }
 
                             toSort.sort(null);
                             for (int j = 0; j < toSort.size(); j++) {
@@ -290,19 +298,29 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                                 if (infopoint instanceof Call) {
                                     Call call = (Call) infopoint;
                                     newInfoPoints.add(new Call(call.target, Math.toIntExact(i[j]), call.size, call.direct, call.debugInfo));
-                                }else {
+                                } else {
                                     newInfoPoints.add(new Infopoint(Math.toIntExact(i[j]), infopoint.debugInfo, InfopointReason.METHOD_START));
                                 }
                             }
 
                             compilations.get(methodIndex[id]).clearInfopoints();
                             newInfoPoints.forEach(compilations.get(methodIndex[id])::addInfopoint);
-                            objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id);
-                        });
+
+                        }
+                        classIdMap.get(s).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
                         return true;
                     } catch (Throwable e) {
                         System.err.println("Failed to reuse object file of class " + s + "!");
                         e.printStackTrace();
+                        infpointSafe.forEach((integer, infopoints) -> {
+                            compilations.get(methodIndex[integer]).clearInfopoints();
+                            infopoints.forEach(compilations.get(methodIndex[integer])::addInfopoint);
+                        });
+                        try {
+                            Files.deleteIfExists(basePath.resolve("b-" + s + ".o"));
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
                         return false;
                     }
                 });
