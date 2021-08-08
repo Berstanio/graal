@@ -160,22 +160,18 @@ public class LLVMObjectFileReader {
         return new LLVMStackMapInfo(stackMap.asByteBuffer());
     }
 
-    public void readStackMap(LLVMStackMapInfo info, CompilationResult compilation, ResolvedJavaMethod method, long id) {
+    public void readStackMap(LLVMStackMapInfo info, CompilationResult compilation, ResolvedJavaMethod method, int id) {
         String methodSymbolName = SYMBOL_PREFIX + SubstrateUtil.uniqueShortName(method);
 
 
-        long startPatchpointID;
-        if (id == -1) {
-            startPatchpointID = compilation.getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
+        long startPatchpointID = compilation.getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
                     .orElseThrow(() -> new GraalError("no method start infopoint: " + methodSymbolName)).pcOffset;
-        }else {
-            startPatchpointID = id;
-        }
+
         int totalFrameSize = NumUtil.safeToInt(info.getFunctionStackSize(startPatchpointID) + LLVMTargetSpecific.get().getCallFrameSeparation());
         compilation.setTotalFrameSize(totalFrameSize);
-        stackMapDumper.startDumpingFunction(methodSymbolName, (int) id, totalFrameSize);
+        stackMapDumper.startDumpingFunction(methodSymbolName, id, totalFrameSize);
 
-        /*List<Infopoint> newInfopoints = new ArrayList<>();
+        List<Infopoint> newInfopoints = new ArrayList<>();
         for (Infopoint infopoint : compilation.getInfopoints()) {
             if (infopoint instanceof Call) {
                 Call call = (Call) infopoint;
@@ -191,7 +187,7 @@ public class LLVMObjectFileReader {
         stackMapDumper.endDumpingFunction();
 
         compilation.clearInfopoints();
-        newInfopoints.forEach(compilation::addInfopoint);*/
+        newInfopoints.forEach(compilation::addInfopoint);
     }
 
     private static DebugInfo copyWithReferenceMap(DebugInfo debugInfo, ReferenceMap referenceMap) {

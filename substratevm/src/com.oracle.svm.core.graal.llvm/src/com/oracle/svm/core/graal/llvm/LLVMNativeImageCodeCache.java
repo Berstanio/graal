@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -49,6 +50,8 @@ import java.util.stream.IntStream;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
+import jdk.vm.ci.code.DebugInfo;
+import jdk.vm.ci.code.site.Infopoint;
 import jdk.vm.ci.code.site.InfopointReason;
 import org.graalvm.compiler.code.CompilationResult;
 import org.graalvm.compiler.core.common.NumUtil;
@@ -236,15 +239,16 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
             String[] directories = tmp.list((current, name) -> new File(current, name).isDirectory());
             String dir = Arrays.stream(directories).filter(s -> s.startsWith("SVM-") && !s.equals(basePath.getParent().toFile().getName())).max(String::compareTo).orElse(null);
             List<String> allClasses = new ArrayList<>(classIdMap.keySet());
-            HashMap<String, Long> methodPatchpointMap = new HashMap<>();
+            HashMap<String, Long[]> methodPatchpointMap = new HashMap<>();
             if (dir != null) {
                 File lastDir = new File(NativeImageOptions.TempDirectory.getValue() + "/" + dir + "/llvm/");
                 if (new File(lastDir, "patchPoints.txt").exists()) {
                     try {
                         Files.copy(new File(lastDir, "patchPoints.txt").toPath(), basePath.resolve("patchPoints.txt"));
-                        Files.readAllLines(basePath.resolve("patchPoints.txt")).stream().forEach(s -> {
+                        Files.readAllLines(basePath.resolve("patchPoints.txt")).forEach(s -> {
                             String[] split = s.split(";");
-                            methodPatchpointMap.put(split[0], Long.parseLong(split[1]));
+                            Long[] longs = Arrays.stream(Arrays.copyOfRange(split, 1, split.length)).map(Long::parseLong).toArray(Long[]::new);
+                            methodPatchpointMap.put(split[0], longs);
                         });
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -275,8 +279,25 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         Files.copy(new File(lastDir, "b-" + s + ".o").toPath(), basePath.resolve("b-" + s + ".o"));
                         LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + s + ".o"));
                         classIdMap.get(s).forEach(id -> {
-                                long i = methodPatchpointMap.get(SubstrateUtil.uniqueShortName(methodIndex[id]));
-                                objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], i);
+                            Long[] i = methodPatchpointMap.get(SubstrateUtil.uniqueShortName(methodIndex[id]));
+
+                            List<Infopoint> newInfoPoints = new ArrayList<>();
+                            List<Infopoint> toSort = new ArrayList<>(compilations.get(methodIndex[id]).getInfopoints());
+
+                            toSort.sort(null);
+                            for (int j = 0; j < toSort.size(); j++) {
+                                Infopoint infopoint = toSort.get(j);
+                                if (infopoint instanceof Call) {
+                                    Call call = (Call) infopoint;
+                                    newInfoPoints.add(new Call(call.target, Math.toIntExact(i[j]), call.size, call.direct, call.debugInfo));
+                                }else {
+                                    newInfoPoints.add(new Infopoint(Math.toIntExact(i[j]), infopoint.debugInfo, InfopointReason.METHOD_START));
+                                }
+                            }
+
+                            compilations.get(methodIndex[id]).clearInfopoints();
+                            newInfoPoints.forEach(compilations.get(methodIndex[id])::addInfopoint);
+                            objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id);
                         });
                         return true;
                     } catch (Throwable e) {
@@ -294,17 +315,19 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(basePath.resolve("b-" + allClasses.get(batchId) + ".o"));
 
                 classIdMap.get(allClasses.get(batchId)).forEach(id -> {
-                    long startPatchPoint = compilations.get(methodIndex[id]).getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
-                            .orElseThrow(() -> new GraalError("no method start infopoint: ")).pcOffset;
-                    //Todo Name to long, maybe put into one file
-                    methodPatchpointMap.put(SubstrateUtil.uniqueShortName(methodIndex[id]), startPatchPoint);
+                    methodPatchpointMap.put(SubstrateUtil.uniqueShortName(methodIndex[id]),
+                            compilations.get(methodIndex[id]).getInfopoints().stream().sorted().map(infopoint -> (long) infopoint.pcOffset).toArray(Long[]::new));
 
-                    objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1);
+                    objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id);
                 });
             });
             StringBuilder s = new StringBuilder();
             methodPatchpointMap.forEach((s1, aLong) -> {
-                s.append(s1).append(";").append(aLong).append("\n");
+                s.append(s1);
+                for (Long pathcpointID : aLong) {
+                    s.append(";").append(pathcpointID);
+                }
+                s.append("\n");
             });
             try {
                 Files.write(basePath.resolve("patchPoints.txt"), (s.toString()).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
@@ -318,7 +341,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                 llvmCompile(debug, getBatchCompiledFilename(batchId), getBatchOptimizedFilename(batchId));
 
                 LLVMStackMapInfo stackMap = objectFileReader.parseStackMap(getBatchCompiledPath(batchId));
-                IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], -1));
+                IntStream.range(getBatchStart(batchId), getBatchEnd(batchId)).forEach(id -> objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id));
             });
         }
     }
