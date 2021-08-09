@@ -38,7 +38,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -107,39 +106,6 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
     private final StackMapDumper stackMapDumper;
     //Find better variable name
     private final LinkedHashMap<String, ArrayList<Integer>> classIdMap = new LinkedHashMap<>();
-    private Comparator<Infopoint> infopointComparator = new Comparator<Infopoint>() {
-        @Override
-        //-1 less; 1 greater
-        public int compare(Infopoint o, Infopoint o2) {
-            if (o instanceof Call || o2 instanceof Call) {
-                if (o instanceof Call && o2 instanceof Call){
-                    Call oCall = (Call) o;
-                    Call o2Call = (Call) o2;
-                    if (oCall.target != null || o2Call.target != null) {
-                        if (oCall.target != null && o2Call.target != null) {
-                            return SubstrateUtil.uniqueShortName((ResolvedJavaMethod) oCall.target).compareTo(SubstrateUtil.uniqueShortName((ResolvedJavaMethod) o2Call.target));
-                        } else {
-                            return oCall.target != null ? -1 : 1;
-                        }
-                    }else {
-                        if (o.pcOffset < o2.pcOffset) {
-                            return -1;
-                        } else {
-                            return o.pcOffset > o2.pcOffset ? 1 : o.reason.compareTo(o2.reason);
-                        }
-                    }
-                }else {
-                    return o instanceof Call ? -1 : 1;
-                }
-            }else {
-                if (o.pcOffset < o2.pcOffset) {
-                    return -1;
-                } else {
-                    return o.pcOffset > o2.pcOffset ? 1 : o.reason.compareTo(o2.reason);
-                }
-            }
-        }
-    };
 
 
     LLVMNativeImageCodeCache(Map<HostedMethod, CompilationResult> compilations, NativeImageHeap imageHeap, Platform targetPlatform, Path tempDir) {
@@ -334,7 +300,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                                 return false;
                             }
 
-                            toSort.sort(infopointComparator);
+                            toSort.sort(null);
                             for (int j = 0; j < toSort.size(); j++) {
                                 Infopoint infopoint = toSort.get(j);
                                 if (infopoint instanceof Call) {
@@ -375,7 +341,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
                 classIdMap.get(allClasses.get(batchId)).forEach(id -> {
                     methodPatchpointMap.put(SubstrateUtil.uniqueShortName(methodIndex[id]),
-                            compilations.get(methodIndex[id]).getInfopoints().stream().sorted(infopointComparator).map(infopoint -> (long) infopoint.pcOffset).toArray(Long[]::new));
+                            compilations.get(methodIndex[id]).getInfopoints().stream().sorted().map(infopoint -> (long) infopoint.pcOffset).toArray(Long[]::new));
 
                     objectFileReader.readStackMap(stackMap, compilations.get(methodIndex[id]), methodIndex[id], id);
                 });
