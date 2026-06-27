@@ -86,6 +86,7 @@ import jdk.vm.ci.common.JVMCIError;
 import jdk.vm.ci.meta.Constant;
 import jdk.vm.ci.meta.ConstantPool;
 import jdk.vm.ci.meta.ExceptionHandler;
+import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.JavaType;
 import jdk.vm.ci.meta.LineNumberTable;
 import jdk.vm.ci.meta.Local;
@@ -750,6 +751,20 @@ public abstract class AnalysisMethod extends AnalysisElement implements WrappedJ
 
     @Override
     public void onReachable(Object reason) {
+        /*
+         * With ConservativeTypeReachability the declared parameter and return types of a method whose body is part of the reachable program.
+         */
+        if (PointstoOptions.ConservativeTypeReachability.getValue(getUniverse().hostVM().options())) {
+            for (AnalysisType parameter : toParameterList()) {
+                if (parameter.getJavaKind() == JavaKind.Object) {
+                    parameter.registerAsReachable(reason);
+                }
+            }
+            AnalysisType returnType = getSignature().getReturnType();
+            if (returnType.getJavaKind() == JavaKind.Object) {
+                returnType.registerAsReachable(reason);
+            }
+        }
         registerAsTrackedAcrossLayers(reason);
         notifyReachabilityCallbacks(declaringClass.getUniverse(), new ArrayList<>());
     }

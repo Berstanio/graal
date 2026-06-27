@@ -491,8 +491,13 @@ public class MethodTypeFlowBuilder {
      * However, in open world we cannot make assumptions about types that may become reachable
      * later. Therefore, we must mark the instanceof checked type as reachable. Moreover, stamp
      * strengthening based on reachability status of types must be disabled.
+     * <p>
+     * The same applies when {@link PointstoOptions#ConservativeTypeReachability} is enabled.
      */
     protected static boolean ignoreInstanceOfType(AbstractAnalysisEngine bb, AnalysisType type) {
+        if (PointstoOptions.ConservativeTypeReachability.getValue(bb.getOptions())) {
+            return false;
+        }
         if (bb.getHostVM().ignoreInstanceOfTypeDisallowed()) {
             return false;
         }

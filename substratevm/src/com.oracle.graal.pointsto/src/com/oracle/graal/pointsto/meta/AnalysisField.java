@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import com.oracle.graal.pointsto.api.PointstoOptions;
 import com.oracle.graal.pointsto.infrastructure.WrappedJavaField;
 import com.oracle.graal.pointsto.util.AnalysisError;
 import com.oracle.graal.pointsto.util.AnalysisFuture;
@@ -390,6 +391,12 @@ public abstract class AnalysisField extends AnalysisElement implements WrappedJa
 
     @Override
     public void onReachable(Object reason) {
+        /*
+         * With ConservativeTypeReachability the declared type of an accessed field is treated as a mention and made reachable.
+         */
+        if (getType().getJavaKind() == JavaKind.Object && PointstoOptions.ConservativeTypeReachability.getValue(getUniverse().hostVM().options())) {
+            getType().registerAsReachable(reason);
+        }
         registerAsTrackedAcrossLayers(reason);
         notifyReachabilityCallbacks(declaringClass.getUniverse(), new ArrayList<>());
     }

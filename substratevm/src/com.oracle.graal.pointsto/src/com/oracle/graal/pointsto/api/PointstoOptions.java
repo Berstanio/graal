@@ -157,6 +157,10 @@ public class PointstoOptions {
     @Option(help = "Conservative unsafe access injects all unsafe accessed fields with the instantiated subtypes of their declared type and saturates all unsafe loads.")//
     public static final OptionKey<Boolean> UseConservativeUnsafeAccess = new OptionKey<>(true);
 
+    @Option(help = "Treat classes referenced in reachable code as reachable, even in a closed type world: types used in instanceof checks and casts, " +
+                    "the declared parameter and return types of analyzed methods, and the declared types of accessed fields.")
+    public static final OptionKey<Boolean> ConservativeTypeReachability = new OptionKey<>(true);
+
     @Option(help = "Deprecated, option no longer has any effect.", deprecated = true)//
     static final OptionKey<Boolean> UnresolvedIsError = new OptionKey<>(true);
 
