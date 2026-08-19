@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -163,6 +163,23 @@ public interface Platform {
         }
     }
 
+    /**
+     * Supported architecture: ARMv7 32-bit.
+     *
+     * @since 25.2
+     */
+    interface ARM32 extends Platform, InternalPlatform.NATIVE_ONLY {
+
+        /**
+         * Returns string representing ARM32 architecture.
+         *
+         * @since 25.2
+         */
+        default String getArchitecture() {
+            return "arm";
+        }
+    }
+
     /*
      * The standard operating systems that are supported.
      */
@@ -267,6 +284,14 @@ public interface Platform {
     }
 
     /**
+     * Basis for all Linux operating systems on ARM32 (LINUX_ARM32).
+     *
+     * @since 25.2
+     */
+    interface LINUX_ARM32_BASE extends LINUX, ARM32 {
+    }
+
+    /**
      * Basis for all Apple operating systems on AMD64 (MACOS_AMD64 &amp; IOS_AMD64).
      *
      * @since 22.1
@@ -332,6 +357,23 @@ public interface Platform {
          * @since 22.2
          */
         public LINUX_RISCV64() {
+        }
+
+    }
+
+    /**
+     * Supported leaf platform: Linux on ARMv7 32-bit.
+     *
+     * @since 25.2
+     */
+    final class LINUX_ARM32 implements LINUX, LINUX_ARM32_BASE {
+
+        /**
+         * Instantiates a marker instance of this platform.
+         *
+         * @since 25.2
+         */
+        public LINUX_ARM32() {
         }
 
     }
