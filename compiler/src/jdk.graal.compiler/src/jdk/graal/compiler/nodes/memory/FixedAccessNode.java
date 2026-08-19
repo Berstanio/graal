@@ -28,6 +28,7 @@ import static jdk.graal.compiler.nodeinfo.InputType.Memory;
 
 import org.graalvm.word.LocationIdentity;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.type.Stamp;
 import jdk.graal.compiler.graph.IterableNodeType;
@@ -45,7 +46,8 @@ import jdk.graal.compiler.nodes.memory.address.AddressNode;
  * does not include a null check on the object.
  */
 @NodeInfo
-public abstract class FixedAccessNode extends ImplicitNullCheckNode implements AddressableMemoryAccess, GuardedMemoryAccess, OnHeapMemoryAccess, IterableNodeType, FixedAccessNodeInterface {
+public abstract class FixedAccessNode extends ImplicitNullCheckNode
+                implements AddressableMemoryAccess, GuardedMemoryAccess, OnHeapMemoryAccess, AlignedMemoryAccess, IterableNodeType, FixedAccessNodeInterface {
     public static final NodeClass<FixedAccessNode> TYPE = NodeClass.create(FixedAccessNode.class);
 
     @OptionalInput(InputType.Guard) protected GuardingNode guard;
@@ -60,6 +62,8 @@ public abstract class FixedAccessNode extends ImplicitNullCheckNode implements A
      */
     protected boolean usedAsNullCheck;
     protected BarrierType barrierType;
+
+    protected final AlignmentGuarantee alignmentGuarantee;
 
     @Override
     public AddressNode getAddress() {
@@ -77,6 +81,11 @@ public abstract class FixedAccessNode extends ImplicitNullCheckNode implements A
         return location;
     }
 
+    @Override
+    public AlignmentGuarantee getAlignmentGuarantee() {
+        return alignmentGuarantee;
+    }
+
     public boolean getUsedAsNullCheck() {
         return usedAsNullCheck;
     }
@@ -90,17 +99,27 @@ public abstract class FixedAccessNode extends ImplicitNullCheckNode implements A
     }
 
     protected FixedAccessNode(NodeClass<? extends FixedAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, BarrierType barrierType) {
-        this(c, address, location, stamp, null, barrierType, false, null);
+        this(c, address, location, stamp, barrierType, AlignmentGuarantee.NONE);
+    }
+
+    protected FixedAccessNode(NodeClass<? extends FixedAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, BarrierType barrierType, AlignmentGuarantee alignmentGuarantee) {
+        this(c, address, location, stamp, null, barrierType, false, null, alignmentGuarantee);
     }
 
     protected FixedAccessNode(NodeClass<? extends FixedAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType, boolean usedAsNullCheck,
                     FrameState stateBefore) {
+        this(c, address, location, stamp, guard, barrierType, usedAsNullCheck, stateBefore, AlignmentGuarantee.NONE);
+    }
+
+    protected FixedAccessNode(NodeClass<? extends FixedAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType, boolean usedAsNullCheck,
+                    FrameState stateBefore, AlignmentGuarantee alignmentGuarantee) {
         super(c, stamp, stateBefore);
         this.address = address;
         this.location = location;
         this.guard = guard;
         this.barrierType = barrierType;
         this.usedAsNullCheck = usedAsNullCheck;
+        this.alignmentGuarantee = alignmentGuarantee;
     }
 
     @Override

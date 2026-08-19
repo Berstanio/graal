@@ -29,7 +29,9 @@ import static jdk.graal.compiler.core.common.memory.MemoryOrderMode.VOLATILE;
 import org.graalvm.word.LocationIdentity;
 
 import jdk.graal.compiler.core.common.LIRKind;
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.type.Stamp;
 import jdk.graal.compiler.core.common.util.CompilationAlarm;
@@ -68,9 +70,18 @@ public class WriteNode extends AbstractWriteNode implements LIRLowerableAccess, 
         this(TYPE, address, location, location, value, barrierType, memoryOrder);
     }
 
+    public WriteNode(AddressNode address, LocationIdentity location, ValueNode value, BarrierType barrierType, MemoryOrderMode memoryOrder, AlignmentGuarantee alignmentGuarantee) {
+        this(TYPE, address, location, location, value, barrierType, memoryOrder, alignmentGuarantee);
+    }
+
     protected WriteNode(NodeClass<? extends WriteNode> c, AddressNode address, LocationIdentity location, LocationIdentity killedLocationIdentity, ValueNode value, BarrierType barrierType,
                     MemoryOrderMode memoryOrder) {
-        super(c, address, location, value, barrierType);
+        this(c, address, location, killedLocationIdentity, value, barrierType, memoryOrder, AlignmentGuarantee.NONE);
+    }
+
+    protected WriteNode(NodeClass<? extends WriteNode> c, AddressNode address, LocationIdentity location, LocationIdentity killedLocationIdentity, ValueNode value, BarrierType barrierType,
+                    MemoryOrderMode memoryOrder, AlignmentGuarantee alignmentGuarantee) {
+        super(c, address, location, value, barrierType, alignmentGuarantee);
         assert barrierType == BarrierType.NONE || barrierType == BarrierType.ARRAY || barrierType == BarrierType.FIELD || barrierType == BarrierType.UNKNOWN ||
                         barrierType == BarrierType.POST_INIT_WRITE || barrierType == BarrierType.AS_NO_KEEPALIVE_WRITE : barrierType;
         this.killedLocationIdentity = killedLocationIdentity;
@@ -90,7 +101,8 @@ public class WriteNode extends AbstractWriteNode implements LIRLowerableAccess, 
         if (barrierSet != null) {
             barrierSet.emitStore(tool, writeKind, getBarrierType(), gen.operand(getAddress()), writeValue, gen.state(this), memoryOrder, getLocationIdentity());
         } else {
-            tool.getArithmetic().emitStore(writeKind, gen.operand(getAddress()), writeValue, gen.state(this), memoryOrder);
+            tool.getArithmetic().emitStore(writeKind, gen.operand(getAddress()), writeValue, gen.state(this), memoryOrder,
+                            new MemoryAccessInfo(getLocationIdentity(), getAlignmentGuarantee()));
         }
 
     }

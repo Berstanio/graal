@@ -31,7 +31,9 @@ import static jdk.graal.compiler.nodes.NamedLocationIdentity.ARRAY_LENGTH_LOCATI
 import org.graalvm.word.LocationIdentity;
 
 import jdk.graal.compiler.core.common.LIRKind;
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ConstantFieldProvider;
@@ -108,8 +110,17 @@ public class ReadNode extends FloatableAccessNode
         this(TYPE, address, location, stamp, null, barrierType, memoryOrder, false, null);
     }
 
+    public ReadNode(AddressNode address, LocationIdentity location, Stamp stamp, BarrierType barrierType, MemoryOrderMode memoryOrder, AlignmentGuarantee alignmentGuarantee) {
+        this(TYPE, address, location, stamp, MemoryExtendKind.DEFAULT, null, barrierType, memoryOrder, false, null, null, null, false, alignmentGuarantee);
+    }
+
     public ReadNode(AddressNode address, LocationIdentity location, Stamp stamp, BarrierType barrierType, MemoryOrderMode memoryOrder, ResolvedJavaField field, boolean trustInjected) {
         this(TYPE, address, location, stamp, MemoryExtendKind.DEFAULT, null, barrierType, memoryOrder, false, null, null, field, trustInjected);
+    }
+
+    public ReadNode(AddressNode address, LocationIdentity location, Stamp stamp, BarrierType barrierType, MemoryOrderMode memoryOrder, ResolvedJavaField field, boolean trustInjected,
+                    AlignmentGuarantee alignmentGuarantee) {
+        this(TYPE, address, location, stamp, MemoryExtendKind.DEFAULT, null, barrierType, memoryOrder, false, null, null, field, trustInjected, alignmentGuarantee);
     }
 
     protected ReadNode(NodeClass<? extends ReadNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType, MemoryOrderMode memoryOrder,
@@ -132,7 +143,13 @@ public class ReadNode extends FloatableAccessNode
     protected ReadNode(NodeClass<? extends ReadNode> c, AddressNode address, LocationIdentity location, Stamp accessStamp, MemoryExtendKind extendKind, GuardingNode guard,
                     BarrierType barrierType, MemoryOrderMode memoryOrder, boolean usedAsNullCheck,
                     FrameState stateBefore, MemoryKill lastLocationAccess, ResolvedJavaField field, boolean trustInjected) {
-        super(c, address, location, generateStamp(accessStamp, extendKind), guard, barrierType, usedAsNullCheck, stateBefore);
+        this(c, address, location, accessStamp, extendKind, guard, barrierType, memoryOrder, usedAsNullCheck, stateBefore, lastLocationAccess, field, trustInjected, AlignmentGuarantee.NONE);
+    }
+
+    protected ReadNode(NodeClass<? extends ReadNode> c, AddressNode address, LocationIdentity location, Stamp accessStamp, MemoryExtendKind extendKind, GuardingNode guard,
+                    BarrierType barrierType, MemoryOrderMode memoryOrder, boolean usedAsNullCheck,
+                    FrameState stateBefore, MemoryKill lastLocationAccess, ResolvedJavaField field, boolean trustInjected, AlignmentGuarantee alignmentGuarantee) {
+        super(c, address, location, generateStamp(accessStamp, extendKind), guard, barrierType, usedAsNullCheck, stateBefore, alignmentGuarantee);
 
         this.lastLocationAccess = lastLocationAccess;
         this.accessStamp = accessStamp;
@@ -151,7 +168,8 @@ public class ReadNode extends FloatableAccessNode
             assert extendKind == MemoryExtendKind.DEFAULT : Assertions.errorMessage(this, extendKind);
             gen.setResult(this, barrierSet.emitBarrieredLoad(gen.getLIRGeneratorTool(), readKind, gen.operand(address), gen.state(this), memoryOrder, getBarrierType()));
         } else {
-            gen.setResult(this, gen.getLIRGeneratorTool().getArithmetic().emitLoad(readKind, gen.operand(address), gen.state(this), memoryOrder, extendKind));
+            gen.setResult(this, gen.getLIRGeneratorTool().getArithmetic().emitLoad(readKind, gen.operand(address), gen.state(this), memoryOrder, extendKind,
+                            new MemoryAccessInfo(getLocationIdentity(), getAlignmentGuarantee())));
         }
     }
 
@@ -225,7 +243,8 @@ public class ReadNode extends FloatableAccessNode
         }
         try (DebugCloseable position = withNodeSourcePosition()) {
             GraalError.guarantee(graph().getGraphState().isDuringStage(GraphState.StageFlag.FLOATING_READS), "Only during FloatingReadPhase");
-            return graph().addOrUniqueWithInputs(new FloatingReadNode(getAddress(), getLocationIdentity(), lastLocationAccess, stamp, guard, barrierType, field, trustInjected, false));
+            return graph().addOrUniqueWithInputs(
+                            new FloatingReadNode(getAddress(), getLocationIdentity(), lastLocationAccess, stamp, guard, barrierType, field, trustInjected, false, getAlignmentGuarantee()));
         }
     }
 
@@ -391,6 +410,7 @@ public class ReadNode extends FloatableAccessNode
     @Override
     public FixedWithNextNode copyWithExtendKind(MemoryExtendKind newExtendKind) {
         assert isCompatibleWithExtend(newExtendKind);
-        return new ReadNode(TYPE, address, location, stamp(NodeView.DEFAULT), newExtendKind, guard, barrierType, memoryOrder, usedAsNullCheck, stateBefore, lastLocationAccess, field, trustInjected);
+        return new ReadNode(TYPE, address, location, stamp(NodeView.DEFAULT), newExtendKind, guard, barrierType, memoryOrder, usedAsNullCheck, stateBefore, lastLocationAccess, field, trustInjected,
+                        alignmentGuarantee);
     }
 }

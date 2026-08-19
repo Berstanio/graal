@@ -41,6 +41,7 @@ import jdk.graal.compiler.core.aarch64.AArch64LIRGenerator;
 import jdk.graal.compiler.core.aarch64.AArch64ReadBarrierSetLIRGenerator;
 import jdk.graal.compiler.core.common.LIRKind;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
 import jdk.graal.compiler.core.common.spi.ForeignCallsProvider;
@@ -469,6 +470,6 @@ public class AArch64HotSpotZBarrierSetLIRGenerator implements AArch64ReadBarrier
                         emitPreWriteBarrier, state));
         // If the pre barrier is emitted then any required null check is performed by it, so pass
         // null for the state here. Otherwise, two ops end up using the same LIRFrameState.
-        tool.getArithmetic().emitStore(lirKind, address, result, emitPreWriteBarrier ? null : state, memoryOrder);
+        tool.getArithmetic().emitStore(lirKind, address, result, emitPreWriteBarrier ? null : state, memoryOrder, MemoryAccessInfo.DEFAULT);
     }
 }

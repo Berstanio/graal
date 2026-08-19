@@ -1478,7 +1478,13 @@ public class LLVMIRBuilder implements AutoCloseable {
         return buildIntrinsicCall("llvm.frameaddress." + intrinsicType(rawPointerType()), frameAddressType, level);
     }
 
-    /* Atomic */
+    /*
+     * Atomic
+     *
+     * None of the following sets an alignment, so these accesses keep the ABI (natural) alignment
+     * of their type. That is deliberate: LLVM IR forbids an atomic access less aligned than its
+     * size, and ARM's ldrexd/strexd require natural alignment.
+     */
 
     public void buildFence() {
         LLVM.LLVMBuildFence(builder, LLVM.LLVMAtomicOrderingSequentiallyConsistent, FALSE, DEFAULT_INSTR_NAME);

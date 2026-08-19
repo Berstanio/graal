@@ -30,6 +30,7 @@ import static jdk.graal.compiler.nodeinfo.NodeSize.SIZE_1;
 
 import org.graalvm.word.LocationIdentity;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ConstantFieldProvider;
@@ -116,7 +117,12 @@ public class FloatingReadNode extends FloatingAccessNode implements Canonicaliza
 
     protected FloatingReadNode(AddressNode address, LocationIdentity location, MemoryKill lastLocationAccess, Stamp stamp, GuardingNode guard,
                     BarrierType barrierType, ResolvedJavaField field, boolean trustInjected, boolean noAntiDependency) {
-        super(TYPE, address, location, stamp, guard, barrierType);
+        this(address, location, lastLocationAccess, stamp, guard, barrierType, field, trustInjected, noAntiDependency, AlignmentGuarantee.NONE);
+    }
+
+    protected FloatingReadNode(AddressNode address, LocationIdentity location, MemoryKill lastLocationAccess, Stamp stamp, GuardingNode guard,
+                    BarrierType barrierType, ResolvedJavaField field, boolean trustInjected, boolean noAntiDependency, AlignmentGuarantee alignmentGuarantee) {
+        super(TYPE, address, location, stamp, guard, barrierType, alignmentGuarantee);
         this.lastLocationAccess = lastLocationAccess;
         this.field = field;
         this.trustInjected = trustInjected;
@@ -223,7 +229,7 @@ public class FloatingReadNode extends FloatingAccessNode implements Canonicaliza
             // Setting noAntiDependency to true is a must, otherwise we can introduce incorrect
             // anti-dependencies with nodes between the old memory input and newMemory, leading to
             // an unschedulable graph
-            FloatingReadNode res = new FloatingReadNode(getAddress(), getLocationIdentity(), newMemory, stamp, getGuard(), getBarrierType(), field, trustInjected, true);
+            FloatingReadNode res = new FloatingReadNode(getAddress(), getLocationIdentity(), newMemory, stamp, getGuard(), getBarrierType(), field, trustInjected, true, getAlignmentGuarantee());
             return res;
         }
 
@@ -234,7 +240,8 @@ public class FloatingReadNode extends FloatingAccessNode implements Canonicaliza
     @Override
     public FixedAccessNode asFixedNode() {
         try (DebugCloseable position = withNodeSourcePosition()) {
-            ReadNode result = graph().add(new ReadNode(getAddress(), getLocationIdentity(), stamp(NodeView.DEFAULT), getBarrierType(), MemoryOrderMode.PLAIN, field, trustInjected));
+            ReadNode result = graph().add(
+                            new ReadNode(getAddress(), getLocationIdentity(), stamp(NodeView.DEFAULT), getBarrierType(), MemoryOrderMode.PLAIN, field, trustInjected, getAlignmentGuarantee()));
             result.setGuard(getGuard());
             return result;
         }

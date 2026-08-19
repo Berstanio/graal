@@ -115,6 +115,7 @@ import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.calc.Condition;
 import jdk.graal.compiler.core.common.calc.FloatConvert;
 import jdk.graal.compiler.core.common.calc.FloatConvertCategory;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.debug.Assertions;
@@ -1372,7 +1373,7 @@ public class AMD64ArithmeticLIRGenerator extends ArithmeticLIRGenerator implemen
     }
 
     @Override
-    public Variable emitLoad(LIRKind kind, Value address, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryExtendKind extendKind) {
+    public Variable emitLoad(LIRKind kind, Value address, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryExtendKind extendKind, MemoryAccessInfo accessInfo) {
         assert extendKind.isNotExtended();
         /*
          * AMD64's consistency model does not require any fences for loads. Volatile store->load
@@ -1503,7 +1504,7 @@ public class AMD64ArithmeticLIRGenerator extends ArithmeticLIRGenerator implemen
     }
 
     @Override
-    public void emitStore(ValueKind<?> lirKind, Value address, Value input, LIRFrameState state, MemoryOrderMode memoryOrder) {
+    public void emitStore(ValueKind<?> lirKind, Value address, Value input, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryAccessInfo accessInfo) {
         AMD64AddressValue storeAddress = getAMD64LIRGen().asAddressValue(address);
         AMD64Kind kind = (AMD64Kind) lirKind.getPlatformKind();
         if (isConstantValue(input)) {

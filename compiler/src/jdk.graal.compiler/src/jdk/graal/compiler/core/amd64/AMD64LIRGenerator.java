@@ -71,6 +71,7 @@ import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.Stride;
 import jdk.graal.compiler.core.common.calc.Condition;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
@@ -750,7 +751,7 @@ public abstract class AMD64LIRGenerator extends LIRGenerator {
             }
         } else {
             if (x instanceof AMD64AddressValue) {
-                x = arithmeticLIRGen.emitLoad(LIRKind.value(kind), x, state, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+                x = arithmeticLIRGen.emitLoad(LIRKind.value(kind), x, state, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
             }
             if (useAVX) {
                 VexRMOp op = (kind == AMD64Kind.SINGLE ? VexRMOp.VUCOMISS : VexRMOp.VUCOMISD).encoding(avxEncoding);

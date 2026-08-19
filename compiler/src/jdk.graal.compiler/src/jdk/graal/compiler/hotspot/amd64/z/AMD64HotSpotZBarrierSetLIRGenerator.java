@@ -48,6 +48,7 @@ import jdk.graal.compiler.core.amd64.AMD64ReadBarrierSetLIRGenerator;
 import jdk.graal.compiler.core.common.LIRKind;
 import jdk.graal.compiler.core.common.Stride;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
 import jdk.graal.compiler.core.common.spi.ForeignCallsProvider;
@@ -494,7 +495,7 @@ public class AMD64HotSpotZBarrierSetLIRGenerator implements AMD64ReadBarrierSetL
                 lirTool.emitMembar(MemoryBarriers.STORE_LOAD);
             }
         } else {
-            tool.getArithmetic().emitStore(lirKind, address, writeValue, nullCheckState, memoryOrder);
+            tool.getArithmetic().emitStore(lirKind, address, writeValue, nullCheckState, memoryOrder, MemoryAccessInfo.DEFAULT);
         }
     }
 }

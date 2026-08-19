@@ -131,6 +131,7 @@ import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.Stride;
 import jdk.graal.compiler.core.common.alloc.RegisterAllocationConfig;
 import jdk.graal.compiler.core.common.calc.Condition;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallDescriptor;
@@ -753,7 +754,7 @@ public class SubstrateAMD64Backend extends SubstrateBackendWithAssembler<AMD64Ma
             Value codeOffsetInImage = emitConstant(getLIRKindTool().getWordKind(), JavaConstant.forLong(targetMethod.getImageCodeOffset()));
             Value codeInfo = emitJavaConstant(SubstrateObjectConstant.forObject(targetMethod.getImageCodeInfo()));
             Value codeStartField = new AMD64AddressValue(getLIRKindTool().getWordKind(), asAllocatable(codeInfo), KnownOffsets.singleton().getImageCodeInfoCodeStartOffset());
-            Value codeStart = getArithmetic().emitLoad(getLIRKindTool().getWordKind(), codeStartField, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            Value codeStart = getArithmetic().emitLoad(getLIRKindTool().getWordKind(), codeStartField, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
             return getArithmetic().emitAdd(codeStart, codeOffsetInImage, false);
         }
 
@@ -782,7 +783,7 @@ public class SubstrateAMD64Backend extends SubstrateBackendWithAssembler<AMD64Ma
             var heapBase = ReservedRegisters.singleton().getHeapBaseRegister().asValue(wordKind);
             var heapBaseOffset = GOTAccess.getGOTEntryOffsetFromHeapRegister(pltGOTConfiguration.getMethodGOTEntry(callee));
             Value gotEntryAddress = new AMD64AddressValue(wordKind, heapBase, heapBaseOffset);
-            return getArithmetic().emitLoad(wordKind, gotEntryAddress, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            return getArithmetic().emitLoad(wordKind, gotEntryAddress, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
         }
 
         private boolean shouldEmitIndirectCall(SharedMethod callee) {
@@ -1078,7 +1079,7 @@ public class SubstrateAMD64Backend extends SubstrateBackendWithAssembler<AMD64Ma
                 for (AssignedLocation ret : cc.returnSaving) {
                     Value saveLocation = gen.getArithmetic().emitAdd(returnBuffer, gen.emitJavaConstant(JavaConstant.forLong(offset)), false);
                     AllocatableValue returnedValue = asReturnedValue(ret);
-                    gen.getArithmetic().emitStore(returnedValue.getValueKind(), saveLocation, returnedValue, callState, MemoryOrderMode.PLAIN);
+                    gen.getArithmetic().emitStore(returnedValue.getValueKind(), saveLocation, returnedValue, callState, MemoryOrderMode.PLAIN, MemoryAccessInfo.DEFAULT);
                     offset += returnedValue.getPlatformKind().getSizeInBytes();
                 }
             }
@@ -1209,7 +1210,7 @@ public class SubstrateAMD64Backend extends SubstrateBackendWithAssembler<AMD64Ma
                             .getMetaAccess()
                             .lookupJavaField(ReflectionUtil.lookupField(BoxedRelocatedPointer.class, "pointer"))
                             .getOffset();
-            return gen.getArithmetic().emitLoad(wordKind, new AMD64AddressValue(wordKind, base, offset), null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            return gen.getArithmetic().emitLoad(wordKind, new AMD64AddressValue(wordKind, base, offset), null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
         }
 
         @Override

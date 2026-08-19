@@ -50,6 +50,7 @@ import java.util.function.BiFunction;
 import org.graalvm.collections.Pair;
 import org.graalvm.nativeimage.c.constant.CEnum;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
+import org.graalvm.word.LocationIdentity;
 import org.graalvm.word.WordBase;
 
 import com.oracle.svm.core.NeverInline;
@@ -108,7 +109,9 @@ import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.calc.Condition;
 import jdk.graal.compiler.core.common.calc.FloatConvert;
 import jdk.graal.compiler.core.common.cfg.BasicBlock;
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
@@ -131,6 +134,8 @@ import jdk.graal.compiler.lir.gen.LIRGenerationResult;
 import jdk.graal.compiler.lir.gen.LIRGeneratorTool;
 import jdk.graal.compiler.lir.gen.MoveFactory;
 import jdk.graal.compiler.nodes.AbstractBeginNode;
+import jdk.graal.compiler.nodes.FieldLocationIdentity;
+import jdk.graal.compiler.nodes.NamedLocationIdentity;
 import jdk.graal.compiler.nodes.ParameterNode;
 import jdk.graal.compiler.nodes.StructuredGraph;
 import jdk.graal.compiler.nodes.ValueNode;
@@ -1071,8 +1076,10 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         builder.positionAtEnd(compareBlock);
         LLVMTypeRef elementType = getArrayEqualsElementType(commonElementKind);
         LLVMValueRef elementOffset = getArrayEqualsElementOffset(index, commonElementKind);
-        LLVMValueRef elementA = builder.buildLoad(builder.buildGEP(arrayAPointer, elementOffset), elementType);
-        LLVMValueRef elementB = builder.buildLoad(builder.buildGEP(arrayBPointer, elementOffset), elementType);
+        // Nothing guarentees that the offsets align on natural array element boundaries -> no alignment can be claimed
+        int elementAlignment = 1;
+        LLVMValueRef elementA = builder.buildAlignedLoad(builder.buildGEP(arrayAPointer, elementOffset), elementType, elementAlignment);
+        LLVMValueRef elementB = builder.buildAlignedLoad(builder.buildGEP(arrayBPointer, elementOffset), elementType, elementAlignment);
         LLVMValueRef elementsEqual = builder.buildICmp(Condition.EQ, elementA, elementB);
         builder.buildIf(elementsEqual, nextBlock, doneBlock);
 
@@ -1153,6 +1160,46 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
 
     private static int getMemoryAccessSize(ValueKind<?> kind) {
         return isCompressedReferenceMemory(kind) ? ObjectLayout.singleton().getReferenceSize() : kind.getPlatformKind().getSizeInBytes();
+    }
+
+    private static boolean isObjectAddress(Value address) {
+        return address instanceof LLVMValueWrapper wrapper && LLVMIRBuilder.isObjectType(wrapper.getType());
+    }
+
+    private static int provenAlignment(int size, MemoryAccessInfo accessInfo, boolean objectAddress) {
+        if (!objectAddress) {
+            /* Word, Pointer, @CStruct, off-heap: there is no layout behind this address. */
+            return 1;
+        }
+        ObjectLayout layout = ObjectLayout.singleton();
+        LocationIdentity identity = accessInfo.location();
+        if (identity instanceof FieldLocationIdentity) {
+            /*
+             * UniverseBuilder.placeFields aligns every field to its own size, and every object
+             * starts at a multiple of ObjectLayout.getAlignment().
+             */
+            return Math.min(size, layout.getAlignment());
+        }
+        JavaKind elementKind = NamedLocationIdentity.getArrayLocationKind(identity);
+        if (elementKind != null) {
+            /*
+             * The header is rounded up only to the element size, not to the object
+             * alignment, so element 0 need not be object-aligned
+             */
+            return Math.min(size, Integer.lowestOneBit(layout.getAlignment() | layout.getArrayBaseOffset(elementKind) | layout.sizeInBytes(elementKind)));
+        }
+        if (accessInfo.alignmentGuarantee() == AlignmentGuarantee.NATURAL) {
+            /*
+             * The location proves nothing, but the origin of the access only ever addresses
+             * naturally aligned offsets.
+             */
+            return Math.min(size, layout.getAlignment());
+        }
+        /*
+         * An object base does not imply alignment: ArraysSupport.mismatch reads 64-bit words out of
+         * a byte[] under ANY_LOCATION.
+         */
+        return 1;
     }
 
     private LLVMTypeRef getMemoryAccessType(ValueKind<?> kind) {
@@ -2254,17 +2301,18 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         }
 
         @Override
-        public Variable emitLoad(LIRKind kind, Value address, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryExtendKind extendKind) {
+        public Variable emitLoad(LIRKind kind, Value address, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryExtendKind extendKind, MemoryAccessInfo accessInfo) {
             assert extendKind.isNotExtended();
             assert memoryOrder != MemoryOrderMode.RELEASE && memoryOrder != MemoryOrderMode.RELEASE_ACQUIRE;
+            int alignment = provenAlignment(getMemoryAccessSize(kind), accessInfo, isObjectAddress(address));
             LLVMValueRef load;
             if (isReferenceKind(kind)) {
-                LLVMValueRef loadedBits = buildLoad(address, getMemoryAccessType(kind), getMemoryAccessSize(kind));
+                LLVMValueRef loadedBits = buildLoad(address, getMemoryAccessType(kind), getMemoryAccessSize(kind), alignment);
                 LLVMValueRef loadedReference = builder.buildIntToPtr(buildIntegerResize(loadedBits, LLVMIRBuilder.integerTypeWidth(builder.wordType())), builder.objectType(isCompressedReferenceMemory(
                                 kind)));
                 load = buildReferenceValue(loadedReference, getType(kind), false);
             } else {
-                load = buildLoad(address, getType(kind), getMemoryAccessSize(kind));
+                load = buildLoad(address, getType(kind), getMemoryAccessSize(kind), alignment);
             }
             if (memoryOrder == MemoryOrderMode.ACQUIRE || memoryOrder == MemoryOrderMode.VOLATILE) {
                 /*
@@ -2276,16 +2324,16 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
             return new LLVMVariable(load);
         }
 
-        private LLVMValueRef buildLoad(Value address, LLVMTypeRef type, int sizeInBytes) {
+        private LLVMValueRef buildLoad(Value address, LLVMTypeRef type, int sizeInBytes, int alignment) {
             LLVMPendingSpecialRegisterRead pendingRead = asPendingSpecialRegisterRead(address);
             if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset()) {
                 return buildInlineLoad(pendingRead.getRegisterName(), pendingRead.getConstantOffset(), type, sizeInBytes);
             }
-            return builder.buildAlignedLoad(getVal(address), type, sizeInBytes);
+            return builder.buildAlignedLoad(getVal(address), type, alignment);
         }
 
         @Override
-        public void emitStore(ValueKind<?> kind, Value addr, Value input, LIRFrameState state, MemoryOrderMode memoryOrder) {
+        public void emitStore(ValueKind<?> kind, Value addr, Value input, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryAccessInfo accessInfo) {
             assert memoryOrder != MemoryOrderMode.ACQUIRE && memoryOrder != MemoryOrderMode.RELEASE_ACQUIRE;
             if (memoryOrder == MemoryOrderMode.RELEASE || memoryOrder == MemoryOrderMode.VOLATILE) {
                 emitMembar(MemoryBarriers.LOAD_STORE | MemoryBarriers.STORE_STORE);
@@ -2308,6 +2356,7 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
                 storeType = valueType;
             }
             int accessSize = getMemoryAccessSize(kind);
+            int alignment = provenAlignment(accessSize, accessInfo, isObjectAddress(addr));
             LLVMPendingSpecialRegisterRead pendingRead = asPendingSpecialRegisterRead(addr);
             if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset()) {
                 buildInlineStore(pendingRead.getRegisterName(), pendingRead.getConstantOffset(), castedValue, accessSize);
@@ -2315,7 +2364,7 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
                 LLVMValueRef address = getVal(addr);
                 LLVMTypeRef addressType = LLVMIRBuilder.typeOf(address);
                 LLVMValueRef castedAddress = builder.buildBitcast(address, builder.pointerType(storeType, LLVMIRBuilder.isObjectType(addressType), false));
-                builder.buildAlignedStore(castedValue, castedAddress, accessSize);
+                builder.buildAlignedStore(castedValue, castedAddress, alignment);
             }
 
             if (memoryOrder == MemoryOrderMode.VOLATILE) {

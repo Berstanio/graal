@@ -41,6 +41,7 @@ import jdk.graal.compiler.core.amd64.AMD64LIRGenerator;
 import jdk.graal.compiler.core.common.CompressEncoding;
 import jdk.graal.compiler.core.common.LIRKind;
 import jdk.graal.compiler.core.common.Stride;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
 import jdk.graal.compiler.core.common.spi.LIRKindTool;
@@ -485,7 +486,7 @@ public class AMD64HotSpotLIRGenerator extends AMD64LIRGenerator implements HotSp
         LIRKind wordKind = LIRKind.value(target().arch.getWordKind());
         RegisterValue thread = getProviders().getRegisters().getThreadRegister().asValue(wordKind);
         AMD64AddressValue address = new AMD64AddressValue(wordKind, thread, offset);
-        arithmeticLIRGen.emitStore(v.getValueKind(), address, v, null, MemoryOrderMode.PLAIN);
+        arithmeticLIRGen.emitStore(v.getValueKind(), address, v, null, MemoryOrderMode.PLAIN, MemoryAccessInfo.DEFAULT);
     }
 
     @Override

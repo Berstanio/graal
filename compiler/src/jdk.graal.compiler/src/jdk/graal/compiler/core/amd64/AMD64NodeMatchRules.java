@@ -54,6 +54,7 @@ import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.calc.CanonicalCondition;
 import jdk.graal.compiler.core.common.calc.Condition;
 import jdk.graal.compiler.core.common.calc.FloatConvertCategory;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.type.PrimitiveStamp;
@@ -296,7 +297,7 @@ public class AMD64NodeMatchRules extends NodeMatchRules {
     private Value emitReinterpretMemory(LIRKind to, AddressableMemoryAccess access) {
         AMD64AddressValue address = (AMD64AddressValue) operand(access.getAddress());
         LIRFrameState state = getState(access);
-        return getArithmeticLIRGenerator().emitLoad(to, address, state, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+        return getArithmeticLIRGenerator().emitLoad(to, address, state, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
     }
 
     private boolean supports(CPUFeature feature) {
@@ -647,7 +648,7 @@ public class AMD64NodeMatchRules extends NodeMatchRules {
             Value input = operand(narrow.getValue());
             LIRKind inputKind = LIRKind.combine(input).changeType(writeKind.getPlatformKind());
             Value narrowed = new CastValue(inputKind, getLIRGeneratorTool().asAllocatable(input));
-            getArithmeticLIRGenerator().emitStore(writeKind, operand(root.getAddress()), narrowed, state(root), root.getMemoryOrder());
+            getArithmeticLIRGenerator().emitStore(writeKind, operand(root.getAddress()), narrowed, state(root), root.getMemoryOrder(), MemoryAccessInfo.DEFAULT);
             return null;
         };
     }
@@ -733,7 +734,7 @@ public class AMD64NodeMatchRules extends NodeMatchRules {
             AllocatableValue value = getLIRGeneratorTool().asAllocatable(operand(reinterpret.getValue()));
 
             AMD64AddressValue address = (AMD64AddressValue) operand(root.getAddress());
-            getArithmeticLIRGenerator().emitStore(kind, address, value, getState(root), root.getMemoryOrder());
+            getArithmeticLIRGenerator().emitStore(kind, address, value, getState(root), root.getMemoryOrder(), MemoryAccessInfo.DEFAULT);
             return null;
         };
     }

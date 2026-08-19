@@ -26,6 +26,7 @@ package jdk.graal.compiler.nodes;
 
 import java.util.EnumMap;
 
+import org.graalvm.collections.EconomicMap;
 import org.graalvm.collections.EconomicSet;
 import org.graalvm.collections.Equivalence;
 import org.graalvm.word.LocationIdentity;
@@ -127,6 +128,7 @@ public class NamedLocationIdentity extends LocationIdentity implements FormatWit
     }
 
     private static final EnumMap<JavaKind, LocationIdentity> ARRAY_LOCATIONS = new EnumMap<>(JavaKind.class);
+    private static final EconomicMap<LocationIdentity, JavaKind> ARRAY_LOCATION_KINDS = EconomicMap.create(Equivalence.DEFAULT);
 
     // These exist so that libgraal construction can read these values from static fields.
     public static final LocationIdentity BOOLEAN_ARRAY_LOCATION = initArrayLocation(JavaKind.Boolean);
@@ -142,10 +144,15 @@ public class NamedLocationIdentity extends LocationIdentity implements FormatWit
     private static NamedLocationIdentity initArrayLocation(JavaKind kind) {
         NamedLocationIdentity loc = NamedLocationIdentity.mutable("Array: " + kind.getJavaName());
         ARRAY_LOCATIONS.put(kind, loc);
+        ARRAY_LOCATION_KINDS.put(loc, kind);
         return loc;
     }
 
+    public static JavaKind getArrayLocationKind(LocationIdentity l) {
+        return ARRAY_LOCATION_KINDS.get(l);
+    }
+
     public static boolean isArrayLocation(LocationIdentity l) {
-        return ARRAY_LOCATIONS.containsValue(l);
+        return ARRAY_LOCATION_KINDS.containsKey(l);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,29 +22,17 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package jdk.graal.compiler.lir.gen;
+package jdk.graal.compiler.core.common.memory;
 
 import org.graalvm.word.LocationIdentity;
 
-import jdk.graal.compiler.core.common.memory.BarrierType;
-import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
-import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
-import jdk.graal.compiler.lir.LIRFrameState;
-import jdk.vm.ci.meta.Value;
-import jdk.vm.ci.meta.ValueKind;
-
 /**
- * The platform independent base class for LIR generation for garbage collectors that need write
- * barriers. Platform dependent operations are added in subinterfaces.
+ * What a memory access knows about itself beyond the width, address, frame state and memory
+ * ordering that the LIR level already carries. Passed from the {@code generate} method of the
+ * access node, which is the last place it exists.
  */
-public interface WriteBarrierSetLIRGeneratorTool extends BarrierSetLIRGeneratorTool {
+public record MemoryAccessInfo(LocationIdentity location, AlignmentGuarantee alignmentGuarantee) {
 
-    /**
-     * @param barrierType
-     * @param locationIdentity
-     */
-    default void emitStore(LIRGeneratorTool tool, ValueKind<?> kind, BarrierType barrierType, Value address, Value input, LIRFrameState state, MemoryOrderMode memoryOrder,
-                    LocationIdentity locationIdentity) {
-        tool.getArithmetic().emitStore(kind, address, input, state, memoryOrder, MemoryAccessInfo.DEFAULT);
-    }
+    /** An access with no known location and no alignment guarantee. */
+    public static final MemoryAccessInfo DEFAULT = new MemoryAccessInfo(LocationIdentity.any(), AlignmentGuarantee.NONE);
 }

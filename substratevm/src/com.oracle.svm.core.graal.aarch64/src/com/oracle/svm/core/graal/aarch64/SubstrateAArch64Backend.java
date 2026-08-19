@@ -120,6 +120,7 @@ import jdk.graal.compiler.core.common.LIRKind;
 import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.alloc.RegisterAllocationConfig;
 import jdk.graal.compiler.core.common.calc.Condition;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallDescriptor;
@@ -634,7 +635,7 @@ public class SubstrateAArch64Backend extends SubstrateBackendWithAssembler<Subst
             int wordBits = wordKind.getPlatformKind().getSizeInBytes() * Byte.SIZE;
             int codeStartFieldOffset = KnownOffsets.singleton().getImageCodeInfoCodeStartOffset();
             Value codeStartField = AArch64AddressValue.makeAddress(wordKind, wordBits, asAllocatable(codeInfo), codeStartFieldOffset);
-            Value codeStart = getArithmetic().emitLoad(wordKind, codeStartField, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            Value codeStart = getArithmetic().emitLoad(wordKind, codeStartField, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
             return getArithmetic().emitAdd(codeStart, codeOffsetInImage, false);
         }
 
@@ -664,7 +665,7 @@ public class SubstrateAArch64Backend extends SubstrateBackendWithAssembler<Subst
             var heapBaseOffset = GOTAccess.getGOTEntryOffsetFromHeapRegister(pltGOTConfiguration.getMethodGOTEntry(callee));
             int wordBits = wordKind.getPlatformKind().getSizeInBytes() * Byte.SIZE;
             Value gotEntryAddress = AArch64AddressValue.makeAddress(wordKind, wordBits, heapBase, heapBaseOffset);
-            return getArithmetic().emitLoad(wordKind, gotEntryAddress, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            return getArithmetic().emitLoad(wordKind, gotEntryAddress, null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
         }
 
         private boolean shouldEmitIndirectCall(SharedMethod callee) {
@@ -926,7 +927,7 @@ public class SubstrateAArch64Backend extends SubstrateBackendWithAssembler<Subst
                 for (AssignedLocation ret : cc.returnSaving) {
                     Value saveLocation = gen.getArithmetic().emitAdd(returnBuffer, gen.emitJavaConstant(JavaConstant.forLong(offset)), false);
                     AllocatableValue returnedValue = asReturnedValue(ret);
-                    gen.getArithmetic().emitStore(returnedValue.getValueKind(), saveLocation, returnedValue, callState, MemoryOrderMode.PLAIN);
+                    gen.getArithmetic().emitStore(returnedValue.getValueKind(), saveLocation, returnedValue, callState, MemoryOrderMode.PLAIN, MemoryAccessInfo.DEFAULT);
                     offset += returnedValue.getPlatformKind().getSizeInBytes();
                 }
             }
@@ -1046,7 +1047,8 @@ public class SubstrateAArch64Backend extends SubstrateBackendWithAssembler<Subst
                             .lookupJavaField(ReflectionUtil.lookupField(BoxedRelocatedPointer.class, "pointer"))
                             .getOffset();
             int wordBits = wordKind.getPlatformKind().getSizeInBytes() * Byte.SIZE;
-            return gen.getArithmetic().emitLoad(wordKind, AArch64AddressValue.makeAddress(wordKind, wordBits, base, offset), null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT);
+            return gen.getArithmetic().emitLoad(wordKind, AArch64AddressValue.makeAddress(wordKind, wordBits, base, offset), null, MemoryOrderMode.PLAIN, MemoryExtendKind.DEFAULT,
+                            MemoryAccessInfo.DEFAULT);
         }
 
         @Override

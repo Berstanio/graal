@@ -29,6 +29,7 @@ import jdk.graal.compiler.core.aarch64.AArch64LIRGenerator;
 import jdk.graal.compiler.core.aarch64.AArch64ReadBarrierSetLIRGenerator;
 import jdk.graal.compiler.core.common.LIRKind;
 import jdk.graal.compiler.core.common.memory.BarrierType;
+import jdk.graal.compiler.core.common.memory.MemoryAccessInfo;
 import jdk.graal.compiler.core.common.memory.MemoryExtendKind;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallLinkage;
@@ -130,6 +131,6 @@ public class AArch64HotSpotShenandoahBarrierSetLIRGenerator implements Shenandoa
          * We insert the necessary barriers in the node graph, at that level it is easier to handle
          * compressed object references. No need to do anything special here.
          */
-        return tool.getArithmetic().emitLoad(kind, address, state, memoryOrder, MemoryExtendKind.DEFAULT);
+        return tool.getArithmetic().emitLoad(kind, address, state, memoryOrder, MemoryExtendKind.DEFAULT, MemoryAccessInfo.DEFAULT);
     }
 }

@@ -27,6 +27,7 @@ package jdk.graal.compiler.nodes.memory;
 import static jdk.graal.compiler.nodeinfo.NodeCycles.CYCLES_2;
 import static jdk.graal.compiler.nodeinfo.NodeSize.SIZE_1;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.type.Stamp;
 import jdk.graal.compiler.core.common.type.StampFactory;
@@ -75,7 +76,12 @@ public abstract class AbstractWriteNode extends FixedAccessNode implements State
     }
 
     protected AbstractWriteNode(NodeClass<? extends AbstractWriteNode> c, AddressNode address, LocationIdentity location, ValueNode value, BarrierType barrierType) {
-        super(c, address, location, StampFactory.forVoid(), barrierType);
+        this(c, address, location, value, barrierType, AlignmentGuarantee.NONE);
+    }
+
+    protected AbstractWriteNode(NodeClass<? extends AbstractWriteNode> c, AddressNode address, LocationIdentity location, ValueNode value, BarrierType barrierType,
+                    AlignmentGuarantee alignmentGuarantee) {
+        super(c, address, location, StampFactory.forVoid(), barrierType, alignmentGuarantee);
         this.value = value;
     }
 

@@ -24,6 +24,7 @@
  */
 package jdk.graal.compiler.nodes.memory;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.type.Stamp;
 import jdk.graal.compiler.graph.NodeClass;
@@ -35,19 +36,22 @@ import jdk.graal.compiler.nodes.memory.address.AddressNode;
 import org.graalvm.word.LocationIdentity;
 
 @NodeInfo
-public abstract class FloatingAccessNode extends FloatingGuardedNode implements AddressableMemoryAccess, GuardedMemoryAccess, OnHeapMemoryAccess {
+public abstract class FloatingAccessNode extends FloatingGuardedNode implements AddressableMemoryAccess, GuardedMemoryAccess, OnHeapMemoryAccess, AlignedMemoryAccess {
     public static final NodeClass<FloatingAccessNode> TYPE = NodeClass.create(FloatingAccessNode.class);
 
     @Input(InputType.Association) protected AddressNode address;
     protected final LocationIdentity location;
 
     protected BarrierType barrierType;
+    protected final AlignmentGuarantee alignmentGuarantee;
 
-    protected FloatingAccessNode(NodeClass<? extends FloatingAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType) {
+    protected FloatingAccessNode(NodeClass<? extends FloatingAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType,
+                    AlignmentGuarantee alignmentGuarantee) {
         super(c, stamp, guard);
         this.address = address;
         this.location = location;
         this.barrierType = barrierType;
+        this.alignmentGuarantee = alignmentGuarantee;
     }
 
     @Override
@@ -69,6 +73,11 @@ public abstract class FloatingAccessNode extends FloatingGuardedNode implements 
     @Override
     public BarrierType getBarrierType() {
         return barrierType;
+    }
+
+    @Override
+    public AlignmentGuarantee getAlignmentGuarantee() {
+        return alignmentGuarantee;
     }
 
     @Override

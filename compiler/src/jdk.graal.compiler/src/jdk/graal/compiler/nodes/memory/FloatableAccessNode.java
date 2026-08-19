@@ -24,6 +24,7 @@
  */
 package jdk.graal.compiler.nodes.memory;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.type.Stamp;
 import jdk.graal.compiler.graph.NodeClass;
@@ -49,8 +50,8 @@ public abstract class FloatableAccessNode extends FixedAccessNode {
     }
 
     protected FloatableAccessNode(NodeClass<? extends FloatableAccessNode> c, AddressNode address, LocationIdentity location, Stamp stamp, GuardingNode guard, BarrierType barrierType,
-                    boolean usedAsNullCheck, FrameState stateBefore) {
-        super(c, address, location, stamp, guard, barrierType, usedAsNullCheck, stateBefore);
+                    boolean usedAsNullCheck, FrameState stateBefore, AlignmentGuarantee alignmentGuarantee) {
+        super(c, address, location, stamp, guard, barrierType, usedAsNullCheck, stateBefore, alignmentGuarantee);
     }
 
     public abstract FloatingAccessNode asFloatingNode();
