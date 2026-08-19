@@ -903,9 +903,112 @@ void determineCPUFeatures(CPUFeatures* features) {
   features->fV = !!(auxv & HWCAP_ISA_V);
 }
 
+#elif defined(__arm__)
+/*
+ * The corresponding HotSpot code can be found in vm_version_arm_32 and
+ * vm_version_linux_arm_32.
+ */
+
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#include "arm32cpufeatures.h"
+
+#ifndef HWCAP_NEON
+#define HWCAP_NEON      (1 << 12)
+#endif
+
+#ifndef HWCAP_VFPv3
+#define HWCAP_VFPv3     (1 << 13)
+#endif
+
+#ifndef HWCAP_VFPv4
+#define HWCAP_VFPv4     (1 << 16)
+#endif
+
+#ifndef HWCAP_IDIVA
+#define HWCAP_IDIVA     (1 << 17)
+#endif
+
+#ifndef HWCAP_IDIVT
+#define HWCAP_IDIVT     (1 << 18)
+#endif
+
+#ifndef HWCAP_VFPD32
+#define HWCAP_VFPD32    (1 << 19)
+#endif
+
+#ifndef HWCAP_LPAE
+#define HWCAP_LPAE      (1 << 20)
+#endif
+
+#ifndef HWCAP_EVTSTRM
+#define HWCAP_EVTSTRM   (1 << 21)
+#endif
+
+#ifndef HWCAP2_AES
+#define HWCAP2_AES      (1 << 0)
+#endif
+
+#ifndef HWCAP2_PMULL
+#define HWCAP2_PMULL    (1 << 1)
+#endif
+
+#ifndef HWCAP2_SHA1
+#define HWCAP2_SHA1     (1 << 2)
+#endif
+
+#ifndef HWCAP2_SHA2
+#define HWCAP2_SHA2     (1 << 3)
+#endif
+
+#ifndef HWCAP2_CRC32
+#define HWCAP2_CRC32    (1 << 4)
+#endif
+
+/*
+ * The architecture level, as reported by AT_PLATFORM. HotSpot's VM_Version::get_os_cpu_info()
+ * reads it via uname(2); AT_PLATFORM is preferred here because it is also correct under qemu-arm
+ * user mode, where uname(2) returns the hardcoded UNAME_MACHINE "armv7l" for every emulated CPU.
+ * Returns 0 if AT_PLATFORM is absent or not of the expected form.
+ */
+static int determineArchLevel(void) {
+  const char *platform = (const char *) getauxval(AT_PLATFORM);
+  if (platform == NULL || platform[0] != 'v' || platform[1] < '0' || platform[1] > '9') {
+    return 0;
+  }
+  return platform[1] - '0';
+}
+
+/*
+ * Extracts the CPU features by reading the hwcaps and the architecture level
+ */
+void determineCPUFeatures(CPUFeatures* features) {
+
+  unsigned long auxv = getauxval(AT_HWCAP);
+  unsigned long auxv2 = getauxval(AT_HWCAP2);
+  features->fVFPV3 = !!(auxv & HWCAP_VFPv3);
+  features->fVFPV3_D32 = !!(auxv & HWCAP_VFPD32);
+  features->fVFPV4 = !!(auxv & HWCAP_VFPv4);
+  features->fNEON = !!(auxv & HWCAP_NEON);
+  /*
+   * There is no HWCAP bit for Thumb-2 - HWCAP_THUMB means Thumb-1 and HWCAP_THUMBEE means
+   * ThumbEE. Thumb-2 is mandatory from ARMv7 on, so the architecture level decides.
+   */
+  features->fTHUMB2 = determineArchLevel() >= 7;
+  features->fIDIVA = !!(auxv & HWCAP_IDIVA);
+  features->fIDIVT = !!(auxv & HWCAP_IDIVT);
+  features->fLPAE = !!(auxv & HWCAP_LPAE);
+  features->fEVTSTRM = !!(auxv & HWCAP_EVTSTRM);
+  features->fAES = !!(auxv2 & HWCAP2_AES);
+  features->fPMULL = !!(auxv2 & HWCAP2_PMULL);
+  features->fSHA1 = !!(auxv2 & HWCAP2_SHA1);
+  features->fSHA2 = !!(auxv2 & HWCAP2_SHA2);
+  features->fCRC32 = !!(auxv2 & HWCAP2_CRC32);
+}
+
 #else
 /*
- * Dummy for non AMD64, non AArch64 and non RISCV64
+ * Dummy for non AMD64, non AArch64, non RISCV64 and non ARM32
  */
 void determineCPUFeatures(void* features) {
 }

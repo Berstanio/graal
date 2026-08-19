@@ -38,6 +38,7 @@ import org.graalvm.nativeimage.hosted.Feature;
 
 import com.oracle.svm.core.CPUFeatureAccess;
 import com.oracle.svm.core.SubstrateTarget;
+import com.oracle.svm.core.arm32.ARM32;
 import com.oracle.svm.core.feature.InternalFeature;
 import com.oracle.svm.core.imagelayer.ImageLayerBuildingSupport;
 import com.oracle.svm.guest.staging.jdk.RuntimeSupport;
@@ -385,6 +386,8 @@ public final class RuntimeCPUFeatureCheckImpl {
             return ((AArch64) arch).getFeatures();
         } else if (arch instanceof RISCV64) {
             return ((RISCV64) arch).getFeatures();
+        } else if (arch instanceof ARM32) {
+            return ((ARM32) arch).getFeatures();
         } else {
             throw GraalError.shouldNotReachHere("unsupported architecture"); // ExcludeFromJacocoGeneratedReport
         }

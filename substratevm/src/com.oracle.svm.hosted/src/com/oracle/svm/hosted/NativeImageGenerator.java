@@ -130,6 +130,7 @@ import com.oracle.svm.core.OS;
 import com.oracle.svm.core.ParsingReason;
 import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.SubstrateTarget;
+import com.oracle.svm.core.arm32.ARM32;
 import com.oracle.svm.core.c.libc.LibCBase;
 import com.oracle.svm.core.c.libc.NoLibC;
 import com.oracle.svm.core.c.libc.TemporaryBuildDirectoryProvider;
@@ -271,6 +272,7 @@ import com.oracle.svm.hosted.substitute.DynamicHubPlugin;
 import com.oracle.svm.hosted.substitute.SubstitutionInvocationPlugins;
 import com.oracle.svm.hosted.util.CPUTypeAArch64;
 import com.oracle.svm.hosted.util.CPUTypeAMD64;
+import com.oracle.svm.hosted.util.CPUTypeARM32;
 import com.oracle.svm.hosted.util.CPUTypeRISCV64;
 import com.oracle.svm.shared.ImageLayerBuildingSupportProvider;
 import com.oracle.svm.shared.option.HostedOptionValues;
@@ -547,6 +549,13 @@ public class NativeImageGenerator {
             // runtime checked features are the same as static features on RISCV64 for now
             EnumSet<RISCV64.CPUFeature> runtimeCheckedFeatures = architecture.getFeatures().clone();
             return new SubstrateTarget(architecture, true, 16, 0, runtimeCheckedFeatures);
+        } else if (includedIn(platform, Platform.ARM32.class)) {
+            EnumSet<ARM32.CPUFeature> features = CPUTypeARM32.getSelectedFeatures();
+            features.addAll(parseCSVtoEnum(ARM32.CPUFeature.class, NativeImageOptions.CPUFeatures.getValue().values(), ARM32.CPUFeature.values()));
+            ARM32 architecture = new ARM32(features);
+            // runtime checked features are the same as static features on ARM32 for now
+            EnumSet<ARM32.CPUFeature> runtimeCheckedFeatures = architecture.getFeatures().clone();
+            return new SubstrateTarget(architecture, true, 8, 0, runtimeCheckedFeatures);
         } else {
             throw UserError.abort("Architecture specified by platform is not supported: %s", platform.getClass().getTypeName());
         }

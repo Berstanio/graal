@@ -46,6 +46,7 @@ import com.oracle.svm.core.JavaVersionUtil;
 import com.oracle.svm.core.OS;
 import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.SubstrateTarget;
+import com.oracle.svm.core.arm32.ARM32;
 import com.oracle.svm.core.util.InterruptImageBuilding;
 import com.oracle.svm.core.util.UserError;
 import com.oracle.svm.hosted.c.libc.HostedLibCBase;
@@ -465,10 +466,17 @@ public abstract class CCompilerInvoker {
                 return AArch64.class;
             case "riscv64":
                 return RISCV64.class;
+            case "arm": /* arm-linux-gnueabihf, i.e. what a cross gcc reports as its triplet arch */
+            case "armv7":
+            case "armv7l": /* uname notation */
+            case "armv7hl": /* Fedora/openSUSE toolchain notation */
+            case "armv8l": /* AArch32 state on an ARMv8 CPU, e.g. a 32-bit container on an arm64 host */
+            case "armhf":
+                return ARM32.class;
             case "i686":
             case "80x86": /* Windows notation */
             case "x86":
-                /* Graal does not support 32-bit architectures */
+                /* Graal does not support 32-bit x86 */
             default:
                 return null;
         }

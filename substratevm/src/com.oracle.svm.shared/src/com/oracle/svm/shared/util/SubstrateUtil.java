@@ -62,6 +62,7 @@ public class SubstrateUtil {
         return switch (arch) {
             case "x86_64" -> "amd64";
             case "arm64" -> "aarch64";
+            case "armv7l", "armv8l" -> "arm";
             default -> arch;
         };
     }
