@@ -551,6 +551,30 @@ suite = {
             ],
             "workingSets": "SVM",
         },
+        "com.oracle.svm.core.graal.arm32": {
+            "subDir": "src",
+            "sourceDirs": ["src"],
+            "dependencies": [
+                "com.oracle.svm.core",
+            ],
+            # No jdk.vm.ci.arm entry, because the JDK ships no 32-bit JVMCI architecture,
+            # so it lives in com.oracle.svm.core (com.oracle.svm.core.arm32).
+            "requiresConcealed" : {
+                "jdk.internal.vm.ci" : [
+                    "jdk.vm.ci.code.site",
+                    "jdk.vm.ci.code",
+                    "jdk.vm.ci.meta",
+                    "jdk.vm.ci.meta.annotation",
+                ],
+            },
+            "checkstyle": "com.oracle.svm.core",
+            "javaCompliance" : "24+",
+            "annotationProcessors": [
+                "compiler:GRAAL_PROCESSOR",
+                "SVM_PROCESSOR",
+            ],
+            "workingSets": "SVM",
+        },
         "com.oracle.svm.core.graal.llvm": {
             "subDir": "src",
             "sourceDirs": ["src"],
@@ -1955,6 +1979,7 @@ suite = {
                 "com.oracle.svm.core.graal.amd64",
                 "com.oracle.svm.core.graal.aarch64",
                 "com.oracle.svm.core.graal.riscv64",
+                "com.oracle.svm.core.graal.arm32",
                 "com.oracle.svm.core.posix",
                 "com.oracle.svm.core.windows",
                 "com.oracle.svm.core.genscavenge",

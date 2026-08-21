@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2026, 2026, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ */
+package com.oracle.svm.core.graal.arm32;
+
+import org.graalvm.nativeimage.ImageSingletons;
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
+
+import com.oracle.svm.core.ReservedRegisters;
+import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.feature.InternalFeature;
+import com.oracle.svm.core.graal.code.SubstrateRegisterConfigFactory;
+import com.oracle.svm.core.graal.meta.SubstrateRegisterConfig.ConfigKind;
+import com.oracle.svm.shared.feature.AutomaticallyRegisteredFeature;
+import com.oracle.svm.shared.singletons.traits.BuiltinTraits.BuildtimeAccessOnly;
+import com.oracle.svm.shared.singletons.traits.BuiltinTraits.DisallowLayered;
+import com.oracle.svm.shared.singletons.traits.BuiltinTraits.NoLayeredCallbacks;
+import com.oracle.svm.shared.singletons.traits.SingletonTraits;
+
+import jdk.graal.compiler.debug.GraalError;
+import jdk.vm.ci.code.RegisterConfig;
+import jdk.vm.ci.code.TargetDescription;
+import jdk.vm.ci.meta.MetaAccessProvider;
+
+@AutomaticallyRegisteredFeature
+@Platforms(Platform.ARM32.class)
+class SubstrateARM32Feature implements InternalFeature {
+
+    @Override
+    public void afterRegistration(AfterRegistrationAccess access) {
+
+        ImageSingletons.add(SubstrateRegisterConfigFactory.class, new SubstrateARM32RegisterConfigFactory());
+
+        ImageSingletons.add(ReservedRegisters.class, new ARM32ReservedRegisters());
+
+        if (!SubstrateOptions.useLLVMBackend()) {
+            throw GraalError.unimplemented("The ARM32 native backend is currently unimplemented. Use the LLVM backend.");
+        }
+    }
+}
+
+@SingletonTraits(access = BuildtimeAccessOnly.class, layeredCallbacks = NoLayeredCallbacks.class, other = DisallowLayered.class)
+class SubstrateARM32RegisterConfigFactory implements SubstrateRegisterConfigFactory {
+    @Override
+    public RegisterConfig newRegisterFactory(ConfigKind config, MetaAccessProvider metaAccess, TargetDescription target, Boolean preserveFramePointer) {
+        return new SubstrateARM32RegisterConfig(config, metaAccess, target, preserveFramePointer);
+    }
+}
