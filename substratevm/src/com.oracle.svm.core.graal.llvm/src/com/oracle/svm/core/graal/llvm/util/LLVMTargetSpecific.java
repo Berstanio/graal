@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.Platform;
@@ -39,6 +40,7 @@ import org.graalvm.nativeimage.Platforms;
 import com.oracle.svm.core.FrameAccess;
 import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.SubstrateTarget;
+import com.oracle.svm.core.arm32.ARM32;
 import com.oracle.svm.core.feature.InternalFeature;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMRelocationIteratorRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMSectionIteratorRef;
@@ -50,6 +52,8 @@ import com.oracle.svm.shared.singletons.traits.BuiltinTraits.DisallowLayered;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.NoLayeredCallbacks;
 import com.oracle.svm.shared.singletons.traits.SingletonTraits;
 import com.oracle.svm.shared.util.VMError;
+
+import jdk.vm.ci.code.CPUFeatureName;
 
 /** LLVM target-specific inline assembly snippets and information. */
 public interface LLVMTargetSpecific {
@@ -650,6 +654,206 @@ class LLVMRISCV64TargetSpecificFeature implements InternalFeature {
         @Override
         public String getTargetTriple() {
             return "riscv64" + LLVMTargetSpecific.super.getTargetTriple();
+        }
+    }
+}
+
+@AutomaticallyRegisteredFeature
+@Platforms(Platform.ARM32.class)
+class LLVMARM32TargetSpecificFeature implements InternalFeature {
+    private static final int ARM32_FP_IDX = 11;
+    private static final int ARM32_SP_IDX = 13;
+
+    @Override
+    public boolean isInConfiguration(IsInConfigurationAccess access) {
+        return SubstrateOptions.useLLVMBackend();
+    }
+
+    @Override
+    public void afterRegistration(AfterRegistrationAccess access) {
+        ImageSingletons.add(LLVMTargetSpecific.class, new LLVMARM32TargetSpecific());
+    }
+
+
+    @SingletonTraits(access = BuildtimeAccessOnly.class, layeredCallbacks = NoLayeredCallbacks.class, other = DisallowLayered.class)
+    private static final class LLVMARM32TargetSpecific implements LLVMTargetSpecific {
+        @Override
+        public String getRegisterInlineAsm(String register) {
+            return "MOV $0, " + getLLVMRegisterName(register);
+        }
+
+        @Override
+        public String setRegisterInlineAsm(String register) {
+            return "MOV " + getLLVMRegisterName(register) + ", $0";
+        }
+
+        @Override
+        public String getJumpInlineAsm() {
+            return "BX $0";
+        }
+
+        @Override
+        public String getLoadInlineAsm(String inputRegister, int offset) {
+            return "LDR $0, [" + getLLVMRegisterName(inputRegister) + ", #" + offset + "]";
+        }
+
+        @Override
+        public String getLoadInlineAsm(String inputRegister, int offset, int sizeInBytes) {
+            return switch (sizeInBytes) {
+                case Byte.BYTES -> getLoadStoreInlineAsm("LDRB", inputRegister, offset, sizeInBytes);
+                case Short.BYTES -> getLoadStoreInlineAsm("LDRH", inputRegister, offset, sizeInBytes);
+                case Integer.BYTES -> getLoadStoreInlineAsm("LDR", inputRegister, offset, sizeInBytes);
+                /* A 64-bit value lives in an even/odd core register pair, which ldrd addresses. */
+                case Long.BYTES -> getLoadStoreInlineAsm("LDRD", inputRegister, offset, sizeInBytes);
+                default -> throw shouldNotReachHere("Unsupported load size: " + sizeInBytes); // ExcludeFromJacocoGeneratedReport
+            };
+        }
+
+        @Override
+        public String getStoreInlineAsm(String outputRegister, int offset, int sizeInBytes) {
+            return switch (sizeInBytes) {
+                case Byte.BYTES -> getLoadStoreInlineAsm("STRB", outputRegister, offset, sizeInBytes);
+                case Short.BYTES -> getLoadStoreInlineAsm("STRH", outputRegister, offset, sizeInBytes);
+                case Integer.BYTES -> getLoadStoreInlineAsm("STR", outputRegister, offset, sizeInBytes);
+                case Long.BYTES -> getLoadStoreInlineAsm("STRD", outputRegister, offset, sizeInBytes);
+                default -> throw shouldNotReachHere("Unsupported store size: " + sizeInBytes); // ExcludeFromJacocoGeneratedReport
+            };
+        }
+
+        @Override
+        public String getFixedRegisterMemoryAccessScratchRegister(String baseRegister, int offset, int sizeInBytes) {
+            return isLoadStoreImmediate(offset, sizeInBytes) ? null : getScratchRegister();
+        }
+
+        private String getLoadStoreInlineAsm(String instruction, String baseRegister, int offset, int sizeInBytes) {
+            String base = getLLVMRegisterName(baseRegister);
+            if (isLoadStoreImmediate(offset, sizeInBytes)) {
+                return instruction + " $0, [" + base + ", #" + offset + "]";
+            }
+            String scratch = getLLVMRegisterName(getScratchRegister());
+            String addSub = offset < 0 ? "SUB" : "ADD";
+            return loadOffsetMagnitudeInlineAsm(scratch, offset) + "; " + addSub + " " + scratch + ", " + base + ", " + scratch + "; " +
+                            instruction + " $0, [" + scratch + "]";
+        }
+
+        private static boolean isLoadStoreImmediate(int offset, int sizeInBytes) {
+            int limit = switch (sizeInBytes) {
+                case Byte.BYTES, Integer.BYTES -> 4095;
+                case Short.BYTES, Long.BYTES -> 255;
+                default -> throw shouldNotReachHere("Unsupported access size: " + sizeInBytes); // ExcludeFromJacocoGeneratedReport
+            };
+            return offset >= -limit && offset <= limit;
+        }
+
+        private static String loadOffsetMagnitudeInlineAsm(String register, int offset) {
+            long magnitude = offset < 0 ? -(long) offset : offset;
+            StringBuilder asm = new StringBuilder("MOVW ").append(register).append(", #").append(magnitude & 0xffff);
+            if ((magnitude >>> Short.SIZE) != 0) {
+                asm.append("; MOVT ").append(register).append(", #").append((magnitude >>> Short.SIZE) & 0xffff);
+            }
+            return asm.toString();
+        }
+
+        @Override
+        public String getAddInlineAssembly(String outputRegister, String inputRegister) {
+            return "ADD " + getLLVMRegisterName(outputRegister) + ", " + getLLVMRegisterName(outputRegister) + ", " + getLLVMRegisterName(inputRegister);
+        }
+
+        @Override
+        public String getNopInlineAssembly() {
+            return "NOP";
+        }
+
+        @Override
+        public String getJavaFrameAnchorIPInlineAssembly() {
+            return "ADR $0, .+4";
+        }
+
+        @Override
+        public boolean isSymbolValid(String symbol) {
+            /*
+             * The ARM ELF ABI has llc scatter mapping symbols ("$a", "$t", "$d", each optionally
+             * suffixed with ".<n>") through the text section.
+             */
+            return !symbol.isEmpty() && !isMappingSymbol(symbol) && !symbol.startsWith(".L");
+        }
+
+        private static boolean isMappingSymbol(String symbol) {
+            if (symbol.length() < 2 || symbol.charAt(0) != '$') {
+                return false;
+            }
+            char kind = symbol.charAt(1);
+            if (kind != 'a' && kind != 't' && kind != 'd') {
+                return false;
+            }
+            return symbol.length() == 2 || symbol.charAt(2) == '.';
+        }
+
+        @Override
+        public String getLLVMArchName() {
+            return "arm";
+        }
+
+        @Override
+        public int getCallFrameSeparation() {
+            return 0;
+        }
+
+        @Override
+        public int getFramePointerOffset() {
+            return -2 * SubstrateTarget.getWordSize();
+        }
+
+        @Override
+        public long getCallerSPOffset() {
+            return 2L * SubstrateTarget.getWordSize();
+        }
+
+        @Override
+        public int getStackPointerDwarfRegNum() {
+            return ARM32_SP_IDX;
+        }
+
+        @Override
+        public int getFramePointerDwarfRegNum() {
+            return ARM32_FP_IDX;
+        }
+
+        @Override
+        public List<String> getLLCAdditionalOptions() {
+            List<String> list = new ArrayList<>();
+            list.add("--frame-pointer=all");
+            list.add("-mcpu=generic");
+
+            Set<? extends CPUFeatureName> cpuFeatures = SubstrateTarget.getArchitecture().getFeatures();
+            boolean d32 = cpuFeatures.contains(ARM32.CPUFeature.VFPV3_D32);
+            boolean neon = cpuFeatures.contains(ARM32.CPUFeature.NEON);
+            VMError.guarantee(cpuFeatures.contains(ARM32.CPUFeature.VFPV3), "The hard-float ABI requires VFPv3.");
+            VMError.guarantee(!neon || d32, "NEON requires the full d0-d31 register file.");
+            List<String> attrs = new ArrayList<>();
+            attrs.add("+" + (cpuFeatures.contains(ARM32.CPUFeature.VFPV4) ? "vfp4" : "vfp3") + (d32 ? "" : "d16"));
+            attrs.add(d32 ? "+d32" : "-d32");
+            attrs.add(neon ? "+neon" : "-neon");
+            attrs.add(cpuFeatures.contains(ARM32.CPUFeature.IDIVA) ? "+hwdiv-arm" : "-hwdiv-arm");
+            attrs.add(cpuFeatures.contains(ARM32.CPUFeature.IDIVT) ? "+hwdiv" : "-hwdiv");
+            attrs.add("+reserve-r9");
+            attrs.add("+reserve-r10");
+            list.add("-mattr=" + String.join(",", attrs));
+
+            return list;
+        }
+
+        @Override
+        public String getScratchRegister() {
+            return "r12";
+        }
+
+        @Override
+        public String getTargetTriple() {
+            if (Platform.includedIn(Platform.LINUX.class)) {
+                return "armv7-unknown-linux-gnueabihf";
+            }
+            throw shouldNotReachHere("Unexpected target for the ARM32 LLVM backend: " + ImageSingletons.lookup(Platform.class).toString());
         }
     }
 }

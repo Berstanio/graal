@@ -155,8 +155,8 @@ public final class SubstrateMemoryAccessProviderImpl implements SubstrateMemoryA
             throw new IllegalArgumentException("Base is null.");
         } else if (displacement < 0 || Word.unsigned(displacement + accessBytes).aboveThan(LayoutEncoding.getMomentarySizeFromObject(baseObject))) {
             throw new IllegalArgumentException("Reading outside object bounds.");
-        } else if (Platform.includedIn(Platform.AARCH64.class) && displacement % accessBytes != 0) {
-            /* Unaligned volatile accesses may cause segfaults on AArch64. */
+        } else if ((Platform.includedIn(Platform.AARCH64.class) || Platform.includedIn(Platform.ARM32.class)) && displacement % accessBytes != 0) {
+            /* Unaligned volatile accesses may cause segfaults on AArch64 and ARM32. */
             throw new IllegalArgumentException("Read is unaligned.");
         }
 
