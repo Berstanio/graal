@@ -31,6 +31,7 @@ import java.util.Map;
 
 import com.oracle.objectfile.ObjectFile;
 import com.oracle.svm.core.graal.llvm.util.LLVMIRBuilder;
+import com.oracle.svm.core.graal.llvm.util.LLVMTargetSpecific;
 import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMValueRef;
 
@@ -50,6 +51,7 @@ public class LLVMDataSectionPart {
 
     public LLVMDataSectionPart(int id, int batchOffset, int pageSize, ObjectFile.Element element, LLVMValueRef[] content, List<Integer> relocationsBatch, List<LLVMSymtab.Entry> symbols) {
         this.builder = new LLVMIRBuilder("LLVMDataSection" + id);
+        this.builder.setTarget(LLVMTargetSpecific.get().getTargetTriple());
         this.id = id;
         this.batchOffset = batchOffset;
         this.pageSize = pageSize;

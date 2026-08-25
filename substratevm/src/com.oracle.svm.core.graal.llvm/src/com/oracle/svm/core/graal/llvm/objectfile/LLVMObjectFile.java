@@ -59,6 +59,7 @@ import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.graal.llvm.LLVMToolchainUtils.BatchExecutor;
 import com.oracle.svm.core.graal.llvm.util.LLVMIRBuilder;
 import com.oracle.svm.core.graal.llvm.util.LLVMOptions;
+import com.oracle.svm.core.graal.llvm.util.LLVMTargetSpecific;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMValueRef;
 import com.oracle.svm.shared.util.VMError;
 
@@ -91,6 +92,7 @@ public class LLVMObjectFile extends ObjectFile {
         super(pageSize);
         this.header = new LLVMHeader("LLVMHeader");
         this.builder = new LLVMIRBuilder("LLVMDataSection");
+        this.builder.setTarget(LLVMTargetSpecific.get().getTargetTriple());
         basePath = tempDir.resolve("llvm");
         this.bb = bb;
     }

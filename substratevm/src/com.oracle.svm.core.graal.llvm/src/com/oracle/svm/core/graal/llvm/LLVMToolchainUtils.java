@@ -80,7 +80,6 @@ public class LLVMToolchainUtils {
          * emission.
          */
         args.add("--trap-unreachable");
-        args.add("-march=" + LLVMTargetSpecific.get().getLLVMArchName());
         args.addAll(LLVMTargetSpecific.get().getLLCAdditionalOptions());
         args.add("-O" + optimizationLevel());
         args.add("-filetype=obj");
