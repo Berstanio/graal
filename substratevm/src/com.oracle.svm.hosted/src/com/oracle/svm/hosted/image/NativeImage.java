@@ -844,6 +844,8 @@ public abstract class NativeImage extends AbstractImage {
             int originalInst = bufferBytes.getInt(offset);
             int newInst = AArch64Assembler.PatcherUtil.patchMov(originalInst, patchValue);
             bufferBytes.putInt(offset, newInst);
+        } else {
+            throw shouldNotReachHere("Patching direct object references in code is not implemented for " + arch);
         }
     }
 

@@ -50,6 +50,11 @@ public enum ELFMachine/* implements Integral */ {
              */
             return NO_FLAGS;
         }
+
+        @Override
+        ELFObjectFile.ELFClass elfClass() {
+            return ELFObjectFile.ELFClass.ELFCLASS64;
+        }
     },
     AArch64 {
         @Override
@@ -63,6 +68,11 @@ public enum ELFMachine/* implements Integral */ {
              * e_flags are always 0 for AArch64
              */
             return NO_FLAGS;
+        }
+
+        @Override
+        ELFObjectFile.ELFClass elfClass() {
+            return ELFObjectFile.ELFClass.ELFCLASS64;
         }
     },
     RISCV64 {
@@ -79,14 +89,40 @@ public enum ELFMachine/* implements Integral */ {
              */
             return RVC_DOUBLE_FLOAT_ABI;
         }
+
+        @Override
+        ELFObjectFile.ELFClass elfClass() {
+            return ELFObjectFile.ELFClass.ELFCLASS64;
+        }
+    },
+    ARM32 {
+        @Override
+        Class<? extends Enum<? extends RelocationMethod>> relocationTypes() {
+            return ELFARM32Relocation.class;
+        }
+
+        @Override
+        int flags() {
+            return ARM_EABI_VER5_HARD_FLOAT;
+        }
+
+        @Override
+        ELFObjectFile.ELFClass elfClass() {
+            return ELFObjectFile.ELFClass.ELFCLASS32;
+        }
     };
 
     private static final int NO_FLAGS = 0;
     private static final int RVC_DOUBLE_FLOAT_ABI = 5;
+    private static final int ARM_EABI_VER5 = 0x05000000;
+    private static final int ARM_EABI_HARD_FLOAT = 0x00000400;
+    private static final int ARM_EABI_VER5_HARD_FLOAT = ARM_EABI_VER5 | ARM_EABI_HARD_FLOAT;
 
     abstract Class<? extends Enum<? extends RelocationMethod>> relocationTypes();
 
     abstract int flags();
+
+    abstract ELFObjectFile.ELFClass elfClass();
 
     public static ELFMachine from(String s) {
         switch (s.toLowerCase(Locale.ROOT)) {
@@ -98,6 +134,8 @@ public enum ELFMachine/* implements Integral */ {
                 return AArch64;
             case "riscv64":
                 return RISCV64;
+            case "arm":
+                return ARM32;
         }
         throw new IllegalStateException("Unknown CPU type: " + s);
     }
@@ -179,6 +217,20 @@ public enum ELFMachine/* implements Integral */ {
                     case UNKNOWN:
                         throw new IllegalArgumentException("Cannot map unknown relocation kind to an ELF riscv64 relocation type: " + k);
                 }
+            case ARM32:
+                switch (k) {
+                    case DIRECT_1:
+                        return ELFARM32Relocation.R_ARM_ABS8;
+                    case DIRECT_2:
+                        return ELFARM32Relocation.R_ARM_ABS16;
+                    case DIRECT_4:
+                        return ELFARM32Relocation.R_ARM_ABS32;
+                    case PC_RELATIVE_4:
+                        return ELFARM32Relocation.R_ARM_REL32;
+                    default:
+                    case UNKNOWN:
+                        throw new IllegalArgumentException("Cannot map unknown relocation kind to an ELF arm32 relocation type: " + k);
+                }
             default:
                 throw new IllegalStateException("Unknown ELF machine type");
         }
@@ -187,6 +239,8 @@ public enum ELFMachine/* implements Integral */ {
     // TODO: use explicit enum values
     public static ELFMachine from(int m) {
         switch (m) {
+            case 0x28:
+                return ARM32;
             case 0x3E:
                 return X86_64;
             case 0xB7:
@@ -205,19 +259,11 @@ public enum ELFMachine/* implements Integral */ {
             return 0x3E;
         } else if (this == RISCV64) {
             return 0xF3;
+        } else if (this == ARM32) {
+            return 0x28;
         } else {
             throw new IllegalStateException("Should not reach here");
         }
-    }
-
-    public static ELFMachine getSystemNativeValue() {
-        String arch = GraalServices.getSavedProperty("os.arch");
-        return switch (arch) {
-            case "aarch64", "arm64" -> AArch64;
-            case "amd64", "x86_64" -> X86_64;
-            case "riscv64" -> RISCV64;
-            default -> throw new IllegalArgumentException("Unsupported ELF machine type: " + arch);
-        };
     }
 }
 
@@ -408,6 +454,171 @@ enum ELFAArch64Relocation implements ELFRelocationMethod {
     private final long code;
 
     ELFAArch64Relocation(long code) {
+        this.code = code;
+    }
+
+    @Override
+    public long toLong() {
+        return code;
+    }
+}
+
+/**
+ * ARM32 (AArch32) ELF relocation types.
+ * Reference:<br>
+ * <cite>https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst#relocation-codes</cite>
+ */
+enum ELFARM32Relocation implements ELFRelocationMethod {
+    R_ARM_NONE(0),
+    R_ARM_PC24(1),
+    R_ARM_ABS32(2),
+    R_ARM_REL32(3),
+    R_ARM_LDR_PC_G0(4),
+    R_ARM_ABS16(5),
+    R_ARM_ABS12(6),
+    R_ARM_THM_ABS5(7),
+    R_ARM_ABS8(8),
+    R_ARM_SBREL32(9),
+    R_ARM_THM_CALL(10),
+    R_ARM_THM_PC8(11),
+    R_ARM_BREL_ADJ(12),
+    R_ARM_TLS_DESC(13),
+    R_ARM_THM_SWI8(14),
+    R_ARM_XPC25(15),
+    R_ARM_THM_XPC22(16),
+    R_ARM_TLS_DTPMOD32(17),
+    R_ARM_TLS_DTPOFF32(18),
+    R_ARM_TLS_TPOFF32(19),
+    R_ARM_COPY(20),
+    R_ARM_GLOB_DAT(21),
+    R_ARM_JUMP_SLOT(22),
+    R_ARM_RELATIVE(23),
+    R_ARM_GOTOFF32(24),
+    R_ARM_BASE_PREL(25),
+    R_ARM_GOT_BREL(26),
+    R_ARM_PLT32(27),
+    R_ARM_CALL(28),
+    R_ARM_JUMP24(29),
+    R_ARM_THM_JUMP24(30),
+    R_ARM_BASE_ABS(31),
+    R_ARM_ALU_PCREL_7_0(32),
+    R_ARM_ALU_PCREL_15_8(33),
+    R_ARM_ALU_PCREL_23_15(34),
+    R_ARM_LDR_SBREL_11_0_NC(35),
+    R_ARM_ALU_SBREL_19_12_NC(36),
+    R_ARM_ALU_SBREL_27_20_CK(37),
+    R_ARM_TARGET1(38),
+    R_ARM_SBREL31(39),
+    R_ARM_V4BX(40),
+    R_ARM_TARGET2(41),
+    R_ARM_PREL31(42),
+    R_ARM_MOVW_ABS_NC(43),
+    R_ARM_MOVT_ABS(44),
+    R_ARM_MOVW_PREL_NC(45),
+    R_ARM_MOVT_PREL(46),
+    R_ARM_THM_MOVW_ABS_NC(47),
+    R_ARM_THM_MOVT_ABS(48),
+    R_ARM_THM_MOVW_PREL_NC(49),
+    R_ARM_THM_MOVT_PREL(50),
+    R_ARM_THM_JUMP19(51),
+    R_ARM_THM_JUMP6(52),
+    R_ARM_THM_ALU_PREL_11_0(53),
+    R_ARM_THM_PC12(54),
+    R_ARM_ABS32_NOI(55),
+    R_ARM_REL32_NOI(56),
+    R_ARM_ALU_PC_G0_NC(57),
+    R_ARM_ALU_PC_G0(58),
+    R_ARM_ALU_PC_G1_NC(59),
+    R_ARM_ALU_PC_G1(60),
+    R_ARM_ALU_PC_G2(61),
+    R_ARM_LDR_PC_G1(62),
+    R_ARM_LDR_PC_G2(63),
+    R_ARM_LDRS_PC_G0(64),
+    R_ARM_LDRS_PC_G1(65),
+    R_ARM_LDRS_PC_G2(66),
+    R_ARM_LDC_PC_G0(67),
+    R_ARM_LDC_PC_G1(68),
+    R_ARM_LDC_PC_G2(69),
+    R_ARM_ALU_SB_G0_NC(70),
+    R_ARM_ALU_SB_G0(71),
+    R_ARM_ALU_SB_G1_NC(72),
+    R_ARM_ALU_SB_G1(73),
+    R_ARM_ALU_SB_G2(74),
+    R_ARM_LDR_SB_G0(75),
+    R_ARM_LDR_SB_G1(76),
+    R_ARM_LDR_SB_G2(77),
+    R_ARM_LDRS_SB_G0(78),
+    R_ARM_LDRS_SB_G1(79),
+    R_ARM_LDRS_SB_G2(80),
+    R_ARM_LDC_SB_G0(81),
+    R_ARM_LDC_SB_G1(82),
+    R_ARM_LDC_SB_G2(83),
+    R_ARM_MOVW_BREL_NC(84),
+    R_ARM_MOVT_BREL(85),
+    R_ARM_MOVW_BREL(86),
+    R_ARM_THM_MOVW_BREL_NC(87),
+    R_ARM_THM_MOVT_BREL(88),
+    R_ARM_THM_MOVW_BREL(89),
+    R_ARM_TLS_GOTDESC(90),
+    R_ARM_TLS_CALL(91),
+    R_ARM_TLS_DESCSEQ(92),
+    R_ARM_THM_TLS_CALL(93),
+    R_ARM_PLT32_ABS(94),
+    R_ARM_GOT_ABS(95),
+    R_ARM_GOT_PREL(96),
+    R_ARM_GOT_BREL12(97),
+    R_ARM_GOTOFF12(98),
+    R_ARM_GOTRELAX(99),
+    R_ARM_GNU_VTENTRY(100),
+    R_ARM_GNU_VTINHERIT(101),
+    R_ARM_THM_JUMP11(102),
+    R_ARM_THM_JUMP8(103),
+    R_ARM_TLS_GD32(104),
+    R_ARM_TLS_LDM32(105),
+    R_ARM_TLS_LDO32(106),
+    R_ARM_TLS_IE32(107),
+    R_ARM_TLS_LE32(108),
+    R_ARM_TLS_LDO12(109),
+    R_ARM_TLS_LE12(110),
+    R_ARM_TLS_IE12GP(111),
+    R_ARM_PRIVATE_0(112),
+    R_ARM_PRIVATE_1(113),
+    R_ARM_PRIVATE_2(114),
+    R_ARM_PRIVATE_3(115),
+    R_ARM_PRIVATE_4(116),
+    R_ARM_PRIVATE_5(117),
+    R_ARM_PRIVATE_6(118),
+    R_ARM_PRIVATE_7(119),
+    R_ARM_PRIVATE_8(120),
+    R_ARM_PRIVATE_9(121),
+    R_ARM_PRIVATE_10(122),
+    R_ARM_PRIVATE_11(123),
+    R_ARM_PRIVATE_12(124),
+    R_ARM_PRIVATE_13(125),
+    R_ARM_PRIVATE_14(126),
+    R_ARM_PRIVATE_15(127),
+    R_ARM_ME_TOO(128),
+    R_ARM_THM_TLS_DESCSEQ16(129),
+    R_ARM_THM_TLS_DESCSEQ32(130),
+    R_ARM_THM_ALU_ABS_G0_NC(132),
+    R_ARM_THM_ALU_ABS_G1_NC(133),
+    R_ARM_THM_ALU_ABS_G2_NC(134),
+    R_ARM_THM_ALU_ABS_G3(135),
+    R_ARM_THM_BF16(136),
+    R_ARM_THM_BF12(137),
+    R_ARM_THM_BF18(138),
+    R_ARM_IRELATIVE(160),
+    R_ARM_GOTFUNCDESC(161),
+    R_ARM_GOTOFFFUNCDESC(162),
+    R_ARM_FUNCDESC(163),
+    R_ARM_FUNCDESC_VALUE(164),
+    R_ARM_TLS_GD32_FDPIC(165),
+    R_ARM_TLS_LDM32_FDPIC(166),
+    R_ARM_TLS_IE32_FDPIC(167);
+
+    private final long code;
+
+    ELFARM32Relocation(long code) {
         this.code = code;
     }
 

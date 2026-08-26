@@ -86,7 +86,7 @@ public class ELFObjectFile extends ObjectFile {
     private char version;
     private ELFOsAbi osabi = ELFOsAbi.getSystemNativeValue();
     private char abiVersion;
-    private ELFClass fileClass = ELFClass.getSystemNativeValue();
+    private ELFClass fileClass;
     private ELFMachine machine;
     private long processorFlags;
     private final boolean runtimeDebugInfoGeneration;
@@ -94,6 +94,7 @@ public class ELFObjectFile extends ObjectFile {
     private ELFObjectFile(int pageSize, ELFMachine machine, boolean runtimeDebugInfoGeneration) {
         super(pageSize);
         this.runtimeDebugInfoGeneration = runtimeDebugInfoGeneration;
+        this.fileClass = machine.elfClass();
         // Create the elements of an empty ELF file:
         // 1. create header
         header = new ELFHeader("ELFHeader", machine.flags());
@@ -494,7 +495,7 @@ public class ELFObjectFile extends ObjectFile {
             short shstrndx;
 
             Struct(ELFType type, ELFMachine machine) {
-                ident = new IdentStruct();
+                ident = new IdentStruct(machine);
                 this.type = type;
                 this.machine = machine;
             }
@@ -506,7 +507,7 @@ public class ELFObjectFile extends ObjectFile {
             class IdentStruct {
 
                 public char[] magic = new char[4];
-                public ELFClass fileClass = ELFClass.getSystemNativeValue(); // default
+                public ELFClass fileClass;
                 public ELFEncoding dataEncoding = ELFEncoding.getSystemNativeValue(); // default
                 public char version;
                 public ELFOsAbi osabi = ELFOsAbi.getSystemNativeValue();
@@ -521,9 +522,10 @@ public class ELFObjectFile extends ObjectFile {
                     this.abiVersion = abiVersion;
                 }
 
-                IdentStruct() {
+                IdentStruct(ELFMachine machine) {
                     this.magic = Arrays.copyOf(IDENT_MAGIC, IDENT_MAGIC.length);
                     assert Arrays.equals(IDENT_MAGIC, magic);
+                    this.fileClass = machine.elfClass();
                 }
 
                 void write(OutputAssembler out) {
