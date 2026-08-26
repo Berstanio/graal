@@ -169,7 +169,13 @@ public class LLVMObjectFileReader {
 
         long startPatchpointID = compilation.getInfopoints().stream().filter(ip -> ip.reason == InfopointReason.METHOD_START).findFirst()
                         .orElseThrow(() -> new GraalError("No method start infopoint: " + methodSymbolName)).pcOffset;
-        long frameSize = info.getFunctionStackSize(startPatchpointID) + LLVMTargetSpecific.get().getCallFrameSeparation();
+        long stackSize = info.getFunctionStackSize(startPatchpointID);
+        long separation = LLVMTargetSpecific.get().getCallFrameSeparation();
+        if (stackSize < 0 || stackSize > Integer.MAX_VALUE - separation) {
+            throw new GraalError("Unencodable frame size " + Long.toUnsignedString(stackSize) + " in " + methodSymbolName);
+        }
+
+        long frameSize = stackSize + separation;
         int totalFrameSize = NumUtil.safeToInt(frameSize == 0 ? SubstrateTarget.singleton().stackAlignment : frameSize);
         compilation.setTotalFrameSize(totalFrameSize);
         stackMapDumper.startDumpingFunction(methodSymbolName, id, totalFrameSize);
