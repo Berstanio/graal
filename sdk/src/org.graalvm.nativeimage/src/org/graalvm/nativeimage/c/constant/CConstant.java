@@ -44,11 +44,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.function.BooleanSupplier;
 
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
+import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.impl.CConstantValueSupport;
 
 /**
@@ -72,6 +74,17 @@ public @interface CConstant {
      * @since 19.0
      */
     String value() default "";
+
+    /**
+     * If the supplier returns {@code false}, this constant is not queried from the C header file
+     * and calls to the annotated method are not replaced with a value.
+     *
+     * The provided class must have a nullary constructor, which is used to instantiate the class.
+     * Then the supplier function is called on the newly instantiated instance.
+     *
+     * @since 25.2
+     */
+    Class<? extends BooleanSupplier> include() default CEntryPoint.AlwaysIncluded.class;
 
     /**
      * Allows access to the value of a {@link CConstant} during image generation.

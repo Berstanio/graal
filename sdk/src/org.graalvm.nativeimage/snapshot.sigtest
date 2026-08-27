@@ -566,6 +566,7 @@ CLSS public abstract interface !annotation org.graalvm.nativeimage.c.constant.CC
  anno 0 java.lang.annotation.Target(java.lang.annotation.ElementType[] value=[METHOD])
 innr public final static ValueAccess
 intf java.lang.annotation.Annotation
+meth public abstract !hasdefault java.lang.Class<? extends java.util.function.BooleanSupplier> include()
 meth public abstract !hasdefault java.lang.String value()
 
 CLSS public final static org.graalvm.nativeimage.c.constant.CConstant$ValueAccess

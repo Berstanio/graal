@@ -89,7 +89,9 @@ import com.oracle.svm.shared.util.ReflectionUtil;
 import com.oracle.svm.shared.util.ReflectionUtil.ReflectionUtilError;
 import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.util.AnnotationUtil;
+import com.oracle.svm.util.GuestAccess;
 
+import jdk.graal.compiler.annotation.AnnotationValue;
 import jdk.graal.compiler.api.replacements.SnippetReflectionProvider;
 import jdk.graal.compiler.debug.DebugContext;
 import jdk.graal.compiler.hotspot.JVMCIVersionCheck;
@@ -422,7 +424,10 @@ public final class NativeLibraries {
         if (!context.isInConfiguration()) {
             /* Nothing to do, all elements in context are ignored. */
         } else if (AnnotationUtil.getAnnotation(method, CConstant.class) != null) {
-            context.appendConstantAccessor(method);
+            AnnotationValue cConstant = AnnotationUtil.getAnnotationValue(method, CConstant.class);
+            if (GuestAccess.get().callBooleanSupplier(cConstant.getType("include"))) {
+                context.appendConstantAccessor(method);
+            }
         } else if (AnnotationUtil.getAnnotation(method, CFunction.class) != null) {
             /* Nothing to do, handled elsewhere but the NativeCodeContext above is important. */
         } else {
