@@ -44,7 +44,9 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.function.BooleanSupplier;
 
+import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.word.LocationIdentity;
 import org.graalvm.word.WordBase;
 
@@ -93,4 +95,15 @@ public @interface CField {
      * @since 19.0
      */
     String value() default "";
+
+    /**
+     * If the supplier returns {@code false}, this field accessor is not queried from the C header
+     * file and calls to the annotated method are not replaced with a memory access.
+     *
+     * The provided class must have a nullary constructor, which is used to instantiate the class.
+     * Then the supplier function is called on the newly instantiated instance.
+     *
+     * @since 25.2
+     */
+    Class<? extends BooleanSupplier> include() default CEntryPoint.AlwaysIncluded.class;
 }

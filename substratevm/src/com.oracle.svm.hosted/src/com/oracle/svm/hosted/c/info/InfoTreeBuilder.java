@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.oracle.svm.shared.util.ReflectionUtil;
 import org.graalvm.nativeimage.c.constant.CConstant;
 import org.graalvm.nativeimage.c.constant.CEnum;
 import org.graalvm.nativeimage.c.constant.CEnumConstant;
@@ -241,6 +242,9 @@ public class InfoTreeBuilder {
             final AccessorInfo accessorInfo;
             final String fieldName;
             if (fieldAnnotation != null) {
+                if (!ReflectionUtil.newInstance(fieldAnnotation.include()).getAsBoolean()) {
+                    continue;
+                }
                 accessorInfo = new AccessorInfo(method, getAccessorKind(method), false, hasLocationIdentityParameter(method), hasUniqueLocationIdentity(method));
                 fieldName = getStructFieldName(accessorInfo, fieldAnnotation.value());
             } else if (bitfieldAnnotation != null) {
