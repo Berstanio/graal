@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.oracle.svm.shared.util.StringUtil;
 import org.graalvm.nativeimage.c.function.CFunctionPointer;
 import org.graalvm.nativeimage.c.function.InvokeCFunctionPointer;
 import org.graalvm.nativeimage.c.type.CTypedef;
@@ -262,10 +263,11 @@ public class CSourceCodeWriter {
     }
 
     /**
-     * Appends definition of "flags" like macro.
+     * Appends definition of "flags" like macro. An entry is either {@code <macro-name>} or
+     * {@code <macro-name> <macro-value>} and only the name may appear in the {@code #ifndef}.
      */
     public void appendMacroDefinition(String preDefine) {
-        appendln("#ifndef " + preDefine);
+        appendln("#ifndef " + StringUtil.split(preDefine, " ", 2)[0]);
         appendln("#define " + preDefine);
         appendln("#endif");
     }
