@@ -24,6 +24,8 @@
  */
 package com.oracle.svm.core.posix.headers;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.constant.CConstant;
 import org.graalvm.nativeimage.c.function.CFunction;
@@ -40,6 +42,7 @@ import org.graalvm.word.WordBase;
 
 import com.oracle.svm.core.posix.headers.Time.timespec;
 import com.oracle.svm.guest.staging.core.thread.OSThreadHandle;
+import com.oracle.svm.shared.Uninterruptible;
 
 // Checkstyle: stop
 
@@ -172,11 +175,34 @@ public class Pthread {
     @CFunction(value = "pthread_cond_wait", transition = Transition.NO_TRANSITION)
     public static native int pthread_cond_wait_no_transition(pthread_cond_t cond, pthread_mutex_t mutex);
 
-    @CFunction
-    public static native int pthread_cond_timedwait(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
+    @CFunction(value = "__pthread_cond_timedwait64")
+    @Platforms(Platform.LINUX_ARM32.class)
+    private static native int pthread_cond_timedwait_time64(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
+
+    @CFunction(value = "pthread_cond_timedwait")
+    private static native int pthread_cond_timedwait_default(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
+
+    public static int pthread_cond_timedwait(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime) {
+        if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+            return pthread_cond_timedwait_time64(cond, mutex, abstime);
+        }
+        return pthread_cond_timedwait_default(cond, mutex, abstime);
+    }
+
+    @CFunction(value = "__pthread_cond_timedwait64", transition = Transition.NO_TRANSITION)
+    @Platforms(Platform.LINUX_ARM32.class)
+    private static native int pthread_cond_timedwait_time64_no_transition(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
 
     @CFunction(value = "pthread_cond_timedwait", transition = Transition.NO_TRANSITION)
-    public static native int pthread_cond_timedwait_no_transition(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
+    private static native int pthread_cond_timedwait_default_no_transition(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime);
+
+    @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+    public static int pthread_cond_timedwait_no_transition(pthread_cond_t cond, pthread_mutex_t mutex, timespec abstime) {
+        if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+            return pthread_cond_timedwait_time64_no_transition(cond, mutex, abstime);
+        }
+        return pthread_cond_timedwait_default_no_transition(cond, mutex, abstime);
+    }
 
     @CFunction(transition = Transition.NO_TRANSITION)
     public static native int pthread_condattr_init(pthread_condattr_t attr);

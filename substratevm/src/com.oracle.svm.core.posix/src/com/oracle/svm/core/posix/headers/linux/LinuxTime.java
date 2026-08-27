@@ -24,6 +24,8 @@
  */
 package com.oracle.svm.core.posix.headers.linux;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.constant.CConstant;
 import org.graalvm.nativeimage.c.function.CFunction;
@@ -37,6 +39,7 @@ import org.graalvm.word.UnsignedWord;
 import com.oracle.svm.core.posix.headers.PosixDirectives;
 import com.oracle.svm.core.posix.headers.Signal;
 import com.oracle.svm.core.posix.headers.Time;
+import com.oracle.svm.shared.Uninterruptible;
 
 // Checkstyle: stop
 
@@ -66,16 +69,40 @@ public class LinuxTime extends Time {
     public static native int CLOCK_THREAD_CPUTIME_ID();
 
     public static class NoTransitions {
+        @CFunction(value = "__clock_gettime64", transition = CFunction.Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int clock_gettime_time64(int clock_id, timespec tp);
+
         /* We still need to support glibc 2.12, where clock_gettime is located in librt. */
-        @CFunction(transition = CFunction.Transition.NO_TRANSITION)
+        @CFunction(value = "clock_gettime", transition = CFunction.Transition.NO_TRANSITION)
         @CLibrary("rt")
-        public static native int clock_gettime(int clock_id, timespec tp);
+        private static native int clock_gettime_default(int clock_id, timespec tp);
+
+        @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+        public static int clock_gettime(int clock_id, timespec tp) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return clock_gettime_time64(clock_id, tp);
+            }
+            return clock_gettime_default(clock_id, tp);
+        }
 
         @CFunction(transition = CFunction.Transition.NO_TRANSITION)
         public static native int timer_create(int clockid, Signal.sigevent sevp, WordPointer timerid);
 
-        @CFunction(transition = CFunction.Transition.NO_TRANSITION)
-        public static native int timer_settime(UnsignedWord timerid, int flags, itimerspec newValue, itimerspec oldValue);
+        @CFunction(value = "__timer_settime64", transition = CFunction.Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int timer_settime_time64(UnsignedWord timerid, int flags, itimerspec newValue, itimerspec oldValue);
+
+        @CFunction(value = "timer_settime", transition = CFunction.Transition.NO_TRANSITION)
+        private static native int timer_settime_default(UnsignedWord timerid, int flags, itimerspec newValue, itimerspec oldValue);
+
+        @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+        public static int timer_settime(UnsignedWord timerid, int flags, itimerspec newValue, itimerspec oldValue) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return timer_settime_time64(timerid, flags, newValue, oldValue);
+            }
+            return timer_settime_default(timerid, flags, newValue, oldValue);
+        }
 
         @CFunction(transition = CFunction.Transition.NO_TRANSITION)
         public static native int timer_delete(UnsignedWord timerid);

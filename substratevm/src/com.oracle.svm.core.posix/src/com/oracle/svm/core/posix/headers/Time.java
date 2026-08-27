@@ -24,6 +24,8 @@
  */
 package com.oracle.svm.core.posix.headers;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.constant.CConstant;
 import org.graalvm.nativeimage.c.constant.CEnum;
@@ -37,6 +39,8 @@ import org.graalvm.nativeimage.c.struct.CFieldAddress;
 import org.graalvm.nativeimage.c.struct.CStruct;
 import org.graalvm.nativeimage.c.type.CLongPointer;
 import org.graalvm.word.PointerBase;
+
+import com.oracle.svm.shared.Uninterruptible;
 
 // Checkstyle: stop
 
@@ -80,9 +84,11 @@ public class Time {
         void set_tv_sec(long value);
 
         @CField
+        @AllowWideningCast
         long tv_nsec();
 
         @CField
+        @AllowNarrowingCast
         void set_tv_nsec(long value);
     }
 
@@ -131,19 +137,65 @@ public class Time {
     public static native int CLOCK_REALTIME();
 
     public static class NoTransitions {
+
+        @CFunction(value = "__setitimer64", transition = CFunction.Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int setitimer_time64(TimerTypeEnum which, itimerval newValue, itimerval oldValue);
+
+        @CFunction(value = "setitimer", transition = CFunction.Transition.NO_TRANSITION)
+        private static native int setitimer_default(TimerTypeEnum which, itimerval newValue, itimerval oldValue);
+
         /**
          * @param which from {@link TimerTypeEnum#getCValue()}
          */
-        @CFunction(transition = CFunction.Transition.NO_TRANSITION)
-        public static native int setitimer(TimerTypeEnum which, itimerval newValue, itimerval oldValue);
+        public static int setitimer(TimerTypeEnum which, itimerval newValue, itimerval oldValue) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return setitimer_time64(which, newValue, oldValue);
+            }
+            return setitimer_default(which, newValue, oldValue);
+        }
 
-        @CFunction(transition = CFunction.Transition.NO_TRANSITION)
-        public static native int gettimeofday(timeval tv, timezone tz);
+        @CFunction(value = "__gettimeofday64", transition = CFunction.Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int gettimeofday_time64(timeval tv, timezone tz);
 
-        @CFunction(transition = CFunction.Transition.NO_TRANSITION)
-        public static native tm localtime_r(CLongPointer timep, tm result);
+        @CFunction(value = "gettimeofday", transition = CFunction.Transition.NO_TRANSITION)
+        private static native int gettimeofday_default(timeval tv, timezone tz);
 
-        @CFunction(transition = Transition.NO_TRANSITION)
-        public static native int nanosleep(timespec requestedtime, timespec remaining);
+        public static int gettimeofday(timeval tv, timezone tz) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return gettimeofday_time64(tv, tz);
+            }
+            return gettimeofday_default(tv, tz);
+        }
+
+        @CFunction(value = "__localtime64_r", transition = CFunction.Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native tm localtime_r_time64(CLongPointer timep, tm result);
+
+        @CFunction(value = "localtime_r", transition = CFunction.Transition.NO_TRANSITION)
+        private static native tm localtime_r_default(CLongPointer timep, tm result);
+
+        public static tm localtime_r(CLongPointer timep, tm result) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return localtime_r_time64(timep, result);
+            }
+            return localtime_r_default(timep, result);
+        }
+
+        @CFunction(value = "__nanosleep64", transition = Transition.NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int nanosleep_time64(timespec requestedtime, timespec remaining);
+
+        @CFunction(value = "nanosleep", transition = Transition.NO_TRANSITION)
+        private static native int nanosleep_default(timespec requestedtime, timespec remaining);
+
+        @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+        public static int nanosleep(timespec requestedtime, timespec remaining) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return nanosleep_time64(requestedtime, remaining);
+            }
+            return nanosleep_default(requestedtime, remaining);
+        }
     }
 }

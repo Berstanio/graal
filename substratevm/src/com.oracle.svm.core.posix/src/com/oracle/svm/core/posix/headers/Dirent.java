@@ -24,6 +24,8 @@
  */
 package com.oracle.svm.core.posix.headers;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.function.CFunction;
 import org.graalvm.nativeimage.c.struct.CFieldAddress;
@@ -41,8 +43,19 @@ public class Dirent {
     @CFunction
     public static native DIR fdopendir(int fd);
 
-    @CFunction
-    public static native dirent readdir(DIR dir);
+    @CFunction(value = "readdir64")
+    @Platforms(Platform.LINUX_ARM32.class)
+    private static native dirent readdir64(DIR dir);
+
+    @CFunction(value = "readdir")
+    private static native dirent readdir_default(DIR dir);
+
+    public static dirent readdir(DIR dir) {
+        if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+            return readdir64(dir);
+        }
+        return readdir_default(dir);
+    }
 
     @CFunction
     public static native int closedir(DIR dir);

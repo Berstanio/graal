@@ -26,6 +26,8 @@ package com.oracle.svm.core.posix.headers.linux;
 
 import static org.graalvm.nativeimage.c.function.CFunction.Transition.NO_TRANSITION;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.function.CFunction;
 import org.graalvm.nativeimage.c.type.CCharPointer;
@@ -33,6 +35,7 @@ import org.graalvm.nativeimage.c.type.CConst;
 
 import com.oracle.svm.core.posix.PosixStat.stat;
 import com.oracle.svm.core.posix.headers.PosixDirectives;
+import com.oracle.svm.shared.Uninterruptible;
 
 // Checkstyle: stop
 
@@ -43,10 +46,34 @@ import com.oracle.svm.core.posix.headers.PosixDirectives;
 public class LinuxStat {
 
     public static class NoTransitions {
-        @CFunction(transition = NO_TRANSITION)
-        public static native int fstat(int fd, stat buf);
+        @CFunction(value = "__fstat64_time64", transition = NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int fstat_time64(int fd, stat buf);
 
-        @CFunction(transition = NO_TRANSITION)
-        public static native int lstat(@CConst CCharPointer path, stat buf);
+        @CFunction(value = "fstat", transition = NO_TRANSITION)
+        private static native int fstat_default(int fd, stat buf);
+
+        @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+        public static int fstat(int fd, stat buf) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return fstat_time64(fd, buf);
+            }
+            return fstat_default(fd, buf);
+        }
+
+        @CFunction(value = "__lstat64_time64", transition = NO_TRANSITION)
+        @Platforms(Platform.LINUX_ARM32.class)
+        private static native int lstat_time64(@CConst CCharPointer path, stat buf);
+
+        @CFunction(value = "lstat", transition = NO_TRANSITION)
+        private static native int lstat_default(@CConst CCharPointer path, stat buf);
+
+        @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+        public static int lstat(@CConst CCharPointer path, stat buf) {
+            if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+                return lstat_time64(path, buf);
+            }
+            return lstat_default(path, buf);
+        }
     }
 }

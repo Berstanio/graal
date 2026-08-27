@@ -30,11 +30,11 @@ import java.util.Collections;
 import java.util.List;
 
 import org.graalvm.nativeimage.Platform;
-import org.graalvm.nativeimage.c.CContext;
 
+import com.oracle.svm.hosted.c.DirectivesExtension;
 import com.oracle.svm.shared.util.VMError;
 
-public class PosixDirectives implements CContext.Directives {
+public class PosixDirectives implements DirectivesExtension {
     private static final String[] commonLibs = new String[]{
                     "<dlfcn.h>",
                     "<dirent.h>",
@@ -72,6 +72,10 @@ public class PosixDirectives implements CContext.Directives {
                     "<mntent.h>",
     };
 
+    private static final List<String> commonMacros = List.of("_GNU_SOURCE", "_LARGEFILE64_SOURCE", "_DARWIN_USE_64_BIT_INODE");
+
+    private static final List<String> lp32LinuxMacros = List.of("_FILE_OFFSET_BITS 64", "_TIME_BITS 64");
+
     @Override
     public boolean isInConfiguration() {
         return Platform.includedIn(Platform.LINUX.class) || Platform.includedIn(Platform.DARWIN.class);
@@ -100,6 +104,22 @@ public class PosixDirectives implements CContext.Directives {
 
     @Override
     public List<String> getMacroDefinitions() {
-        return Arrays.asList("_GNU_SOURCE", "_LARGEFILE64_SOURCE", "_DARWIN_USE_64_BIT_INODE");
+        List<String> result = new ArrayList<>(commonMacros);
+        if (Platform.includedIn(Platform.LINUX_ARM32.class)) {
+            result.addAll(lp32LinuxMacros);
+        }
+        return result;
+    }
+
+    @Override
+    public List<String> getHeaderSnippet() {
+        if (!Platform.includedIn(Platform.LINUX_ARM32.class)) {
+            return Collections.emptyList();
+        }
+        return Arrays.asList(
+                        "#include <time.h>",
+                        "#include <dirent.h>",
+                        "_Static_assert(sizeof(((struct timespec *) 0)->tv_sec) == 8, \"measured time_t is not 64 bit: define _TIME_BITS=64 (needs glibc 2.34+)\");",
+                        "_Static_assert(sizeof(((struct dirent *) 0)->d_ino) == 8, \"measured ino_t/off_t are not 64 bit: define _FILE_OFFSET_BITS=64\");");
     }
 }

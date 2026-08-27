@@ -29,6 +29,7 @@ import org.graalvm.nativeimage.c.function.CFunction;
 import org.graalvm.nativeimage.c.struct.CField;
 import org.graalvm.nativeimage.c.struct.CStruct;
 import org.graalvm.word.PointerBase;
+import org.graalvm.word.SignedWord;
 
 //Checkstyle: stop
 
@@ -42,30 +43,30 @@ public class Times {
     public interface tms extends PointerBase {
 
         @CField
-        long tms_utime();
+        SignedWord tms_utime();
 
         @CField
-        void set_tms_utime(long value);
+        void set_tms_utime(SignedWord value);
 
         @CField
-        long tms_stime();
+        SignedWord tms_stime();
 
         @CField
-        void set_tms_stime(long value);
+        void set_tms_stime(SignedWord value);
 
         @CField
-        long tms_cutime();
+        SignedWord tms_cutime();
 
         @CField
-        void set_tms_cutime(long value);
+        void set_tms_cutime(SignedWord value);
 
         @CField
-        long tms_cstime();
+        SignedWord tms_cstime();
 
         @CField
-        void set_tms_cstime(long value);
+        void set_tms_cstime(SignedWord value);
     }
 
     @CFunction
-    public static native long times(tms tp);
+    public static native SignedWord times(tms tp);
 }

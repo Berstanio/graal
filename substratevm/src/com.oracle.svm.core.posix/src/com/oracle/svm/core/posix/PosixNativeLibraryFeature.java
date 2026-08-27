@@ -31,7 +31,6 @@ import org.graalvm.nativeimage.c.type.CTypeConversion;
 import org.graalvm.nativeimage.c.type.CTypeConversion.CCharPointerHolder;
 import org.graalvm.nativeimage.impl.InternalPlatform;
 import org.graalvm.word.PointerBase;
-import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.core.Isolates;
@@ -85,11 +84,11 @@ final class PosixNativeLibrarySupport extends JNIPlatformNativeLibrarySupport {
         if (Isolates.isCurrentFirst()) { // raise process fd limit to hard max if possible
             Resource.rlimit rlp = UnsafeStackValue.get(Resource.rlimit.class);
             if (Resource.getrlimit(Resource.RLIMIT_NOFILE(), rlp) == 0) {
-                UnsignedWord newValue = rlp.rlim_max();
+                long newValue = rlp.rlim_max();
                 if (Platform.includedIn(Platform.DARWIN.class)) {
                     // On Darwin, getrlimit may return RLIM_INFINITY for rlim_max, but then OPEN_MAX
                     // must be used for setrlimit or it will fail with errno EINVAL.
-                    newValue = Word.unsigned(DarwinSyslimits.OPEN_MAX());
+                    newValue = DarwinSyslimits.OPEN_MAX();
                 }
                 rlp.set_rlim_cur(newValue);
                 if (Resource.setrlimit(Resource.RLIMIT_NOFILE(), rlp) != 0) {
