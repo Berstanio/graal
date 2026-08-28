@@ -616,6 +616,10 @@ public class LLVMIRBuilder implements AutoCloseable {
         return constantInteger(x, 64);
     }
 
+    public LLVMValueRef constantWord(long x) {
+        return constantInteger(x, LLVMIRBuilder.integerTypeWidth(wordType()));
+    }
+
     public LLVMValueRef constantInteger(long value, int bits) {
         return LLVM.LLVMConstInt(integerType(bits), value, FALSE);
     }

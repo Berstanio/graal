@@ -550,7 +550,7 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool, SubstrateNodeLIRBuil
                     LLVMValueRef objectAddress = gen.emitLLVMConstant(builder.objectType(false), object);
                     LLVMValueRef computedAddressIfNull = loadComputedIndirectField(objectAddress, field);
 
-                    LLVMValueRef cond = builder.buildCompare(Condition.NE, builder.constantLong(0), builder.buildPtrToInt(computedAddress), true);
+                    LLVMValueRef cond = builder.buildCompare(Condition.NE, builder.constantWord(0), builder.buildPtrToInt(computedAddress), true);
                     computedAddress = builder.buildSelect(cond, computedAddress, computedAddressIfNull);
                 } else {
                     throw VMError.shouldNotReachHere("Computation is not supported yet: " + computation.getClass().getTypeName());

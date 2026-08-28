@@ -792,7 +792,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
 
     protected AddressNode createUnsafeAddress(StructuredGraph graph, ValueNode object, ValueNode offset) {
         if (object.isConstant() && object.asConstant().isDefaultForKind()) {
-            return graph.addOrUniqueWithInputs(OffsetAddressNode.create(offset, target.wordJavaKind));
+            return graph.addOrUniqueWithInputs(OffsetAddressNode.create(asWordWidth(graph, offset), target.wordJavaKind));
         } else {
             return graph.unique(new OffsetAddressNode(object, asWordWidth(graph, offset)));
         }

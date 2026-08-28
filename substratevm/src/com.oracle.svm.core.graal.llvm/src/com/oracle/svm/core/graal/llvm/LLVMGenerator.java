@@ -1276,7 +1276,7 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
     @Override
     public Value emitReadCallerStackPointer(Stamp wordStamp) {
         LLVMValueRef basePointer = builder.buildFrameAddress(builder.constantInt(0));
-        LLVMValueRef callerSP = builder.buildAdd(builder.buildPtrToInt(basePointer), builder.constantLong(LLVMTargetSpecific.get().getCallerSPOffset()));
+        LLVMValueRef callerSP = builder.buildAdd(builder.buildPtrToInt(basePointer), builder.constantWord(LLVMTargetSpecific.get().getCallerSPOffset()));
         return new LLVMVariable(callerSP);
     }
 
