@@ -330,7 +330,7 @@ public abstract class AllocationSnippets implements Snippets {
             int distance = getPrefetchDistance();
             ExplodeLoopNode.explodeLoop();
             for (int i = 0; i < lines; i++) {
-                PrefetchAllocateNode.prefetch(OffsetAddressNode.address(address, distance));
+                PrefetchAllocateNode.prefetch(OffsetAddressNode.address(address, Word.signed(distance)));
                 distance += stepSize;
             }
         }

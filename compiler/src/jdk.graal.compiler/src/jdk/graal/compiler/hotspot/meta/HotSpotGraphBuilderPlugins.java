@@ -568,7 +568,7 @@ public class HotSpotGraphBuilderPlugins {
                         return false;
                     }
                     try (HotSpotInvocationPluginHelper helper = new HotSpotInvocationPluginHelper(b, targetMethod, config)) {
-                        OffsetAddressNode address = OffsetAddressNode.create(helper.asWord(config.shouldNotifyObjectAllocAddress));
+                        OffsetAddressNode address = OffsetAddressNode.create(helper.asWord(config.shouldNotifyObjectAllocAddress), helper.getWordKind());
                         ValueNode shouldPostVMObjectAlloc = b.add(new JavaReadNode(JavaKind.Int, address, LocationIdentity.ANY_LOCATION, BarrierType.NONE, MemoryOrderMode.PLAIN, false));
                         LogicNode testShouldPostVMObjectAlloc = IntegerEqualsNode.create(shouldPostVMObjectAlloc, ConstantNode.forInt(0), NodeView.DEFAULT);
                         FixedGuardNode guard = new FixedGuardNode(testShouldPostVMObjectAlloc, DeoptimizationReason.RuntimeConstraint, DeoptimizationAction.InvalidateRecompile,
@@ -711,7 +711,7 @@ public class HotSpotGraphBuilderPlugins {
     private static AddressNode getScopedValueCacheAddress(GraphBuilderContext b, HotSpotInvocationPluginHelper helper) {
         CurrentJavaThreadNode javaThread = b.add(new CurrentJavaThreadNode(helper.getWordKind()));
         ValueNode scopedValueCacheHandle = helper.read(JAVA_THREAD_SCOPED_VALUE_CACHE_LOCATION, javaThread);
-        return b.add(OffsetAddressNode.create(scopedValueCacheHandle));
+        return b.add(OffsetAddressNode.create(scopedValueCacheHandle, helper.getWordKind()));
     }
 
     private static void registerThreadPlugins(InvocationPlugins plugins, GraalHotSpotVMConfig config, BarrierSet barrierSet) {
@@ -723,7 +723,7 @@ public class HotSpotGraphBuilderPlugins {
                     CurrentJavaThreadNode thread = b.add(new CurrentJavaThreadNode(helper.getWordKind()));
                     ValueNode vthreadHandle = helper.read(JAVA_THREAD_CURRENT_THREAD_OBJECT_LOCATION, thread);
                     // Read the Object from the OopHandle
-                    AddressNode handleAddress = b.add(OffsetAddressNode.create(vthreadHandle));
+                    AddressNode handleAddress = b.add(OffsetAddressNode.create(vthreadHandle, helper.getWordKind()));
                     // JavaThread::_vthread is never compressed
                     ObjectStamp threadStamp = StampFactory.objectNonNull(TypeReference.create(b.getAssumptions(), b.getMetaAccess().lookupJavaType(Thread.class)));
                     ValueNode read = new ReadNode(handleAddress, HOTSPOT_CURRENT_THREAD_OOP_HANDLE_LOCATION, threadStamp,
@@ -741,7 +741,7 @@ public class HotSpotGraphBuilderPlugins {
                     CurrentJavaThreadNode thread = b.add(new CurrentJavaThreadNode(helper.getWordKind()));
                     ValueNode cthreadHandle = helper.read(JAVA_THREAD_CARRIER_THREAD_OBJECT_LOCATION, thread);
                     // Read the Object from the OopHandle
-                    AddressNode handleAddress = b.add(OffsetAddressNode.create(cthreadHandle));
+                    AddressNode handleAddress = b.add(OffsetAddressNode.create(cthreadHandle, helper.getWordKind()));
                     // JavaThread::_threadObj is never compressed
                     ObjectStamp threadStamp = StampFactory.objectNonNull(TypeReference.create(b.getAssumptions(), b.getMetaAccess().lookupJavaType(Thread.class)));
                     ValueNode read = new ReadNode(handleAddress, HOTSPOT_CARRIER_THREAD_OOP_HANDLE_LOCATION, threadStamp,
@@ -761,7 +761,7 @@ public class HotSpotGraphBuilderPlugins {
                     receiver.get(true);
                     CurrentJavaThreadNode javaThread = b.add(new CurrentJavaThreadNode(helper.getWordKind()));
                     ValueNode threadObjectHandle = helper.read(JAVA_THREAD_CURRENT_THREAD_OBJECT_LOCATION, javaThread);
-                    AddressNode handleAddress = b.add(OffsetAddressNode.create(threadObjectHandle));
+                    AddressNode handleAddress = b.add(OffsetAddressNode.create(threadObjectHandle, helper.getWordKind()));
                     b.add(new WriteNode(handleAddress, HOTSPOT_CURRENT_THREAD_OOP_HANDLE_LOCATION, thread,
                                     barrierSet.writeBarrierType(HOTSPOT_CURRENT_THREAD_OOP_HANDLE_LOCATION), MemoryOrderMode.PLAIN));
 
@@ -815,7 +815,7 @@ public class HotSpotGraphBuilderPlugins {
         // protocol.
         try (HotSpotInvocationPluginHelper helper = new HotSpotInvocationPluginHelper(b, targetMethod, config)) {
             GraalError.guarantee(config.virtualThreadVTMSNotifyJvmtiEvents != -1L, "JvmtiVTMSTransitionDisabler::_VTMS_notify_jvmti_events is not exported");
-            OffsetAddressNode address = OffsetAddressNode.create(helper.asWord(config.virtualThreadVTMSNotifyJvmtiEvents));
+            OffsetAddressNode address = OffsetAddressNode.create(helper.asWord(config.virtualThreadVTMSNotifyJvmtiEvents), helper.getWordKind());
             ValueNode notifyJvmtiEnabled = b.add(new JavaReadNode(JavaKind.Boolean, address, HotSpotReplacementsUtil.HOTSPOT_VTMS_NOTIFY_JVMTI_EVENTS, BarrierType.NONE, MemoryOrderMode.PLAIN, false));
             LogicNode testNotifyJvmtiEnabled = IntegerEqualsNode.create(notifyJvmtiEnabled, ConstantNode.forBoolean(true), NodeView.DEFAULT);
 

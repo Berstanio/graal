@@ -70,7 +70,8 @@ public abstract class UseTrappingOperationPhase extends BasePhase<LowTierContext
     public abstract DeoptimizingFixedWithNextNode tryReplaceExisting(StructuredGraph graph, AbstractBeginNode nonTrappingContinuation, AbstractBeginNode trappingContinuation, LogicNode condition,
                     IfNode ifNode, AbstractDeoptimizeNode deopt, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation, LowTierContext context);
 
-    public abstract DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation);
+    public abstract DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation,
+                    LowTierContext context);
 
     public abstract boolean trueSuccessorIsDeopt();
 
@@ -213,7 +214,7 @@ public abstract class UseTrappingOperationPhase extends BasePhase<LowTierContext
         if (trappingVersionNode == null) {
             try (DebugCloseable closable = ifNode.withNodeSourcePosition()) {
                 // Need to add a null check node.
-                trappingVersionNode = createImplicitNode(graph, condition, deoptReasonAndAction, deoptSpeculation);
+                trappingVersionNode = createImplicitNode(graph, condition, deoptReasonAndAction, deoptSpeculation, context);
             }
             graph.replaceSplit(ifNode, trappingVersionNode, nonTrappingContinuation);
             graph.getOptimizationLog().report(getClass(), "NullCheckInsertion", ifNode);

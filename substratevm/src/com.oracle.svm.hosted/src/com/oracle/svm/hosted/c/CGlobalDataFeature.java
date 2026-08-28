@@ -253,7 +253,7 @@ public class CGlobalDataFeature implements InternalFeature {
                     /* Dereference the address if CGlobalDataInfo is a symbol reference. */
                     ValueNode isSymbolReference = b.add(LoadFieldNode.create(b.getAssumptions(), info, b.getMetaAccess().lookupJavaField(isSymbolReferenceField)));
                     LogicNode condition = IntegerEqualsNode.create(isSymbolReference, ConstantNode.forBoolean(false, b.getGraph()), NodeView.DEFAULT);
-                    ReadNode readValue = b.add(new ReadNode(b.add(OffsetAddressNode.create(address)), NamedLocationIdentity.ANY_LOCATION,
+                    ReadNode readValue = b.add(new ReadNode(b.add(OffsetAddressNode.create(address, b.getReplacements().getWordKind())), NamedLocationIdentity.ANY_LOCATION,
                                     baseAddress.stamp(NodeView.DEFAULT), BarrierType.NONE, MemoryOrderMode.PLAIN));
 
                     AbstractBeginNode trueBegin = b.add(new BeginNode());

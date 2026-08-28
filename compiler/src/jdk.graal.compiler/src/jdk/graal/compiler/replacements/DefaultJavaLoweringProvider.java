@@ -421,6 +421,11 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         return graph.unique(new OffsetAddressNode(object, o));
     }
 
+    protected ValueNode asWordWidth(StructuredGraph graph, ValueNode value) {
+        assert value.stamp(NodeView.DEFAULT) instanceof IntegerStamp : value;
+        return IntegerConvertNode.convert(value, StampFactory.forKind(target.wordJavaKind), graph, NodeView.DEFAULT);
+    }
+
     public AddressNode createFieldAddress(StructuredGraph graph, ValueNode object, ResolvedJavaField field) {
         int offset = fieldOffset(field);
         if (offset >= 0) {
@@ -701,7 +706,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         ValueNode expectedValue = implicitStoreConvert(graph, valueKind, cas.expected());
         ValueNode newValue = implicitStoreConvert(graph, valueKind, cas.newValue());
 
-        AddressNode address = graph.unique(new OffsetAddressNode(cas.object(), cas.offset()));
+        AddressNode address = createUnsafeAddress(graph, cas.object(), cas.offset());
         BarrierType barrierType = barrierSet.readWriteBarrier(cas.object(), newValue);
         LogicCompareAndSwapNode atomicNode = graph.add(
                         new LogicCompareAndSwapNode(address, expectedValue, newValue, cas.getKilledLocationIdentity(), barrierType, cas.getMemoryOrder()));
@@ -716,7 +721,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         ValueNode expectedValue = implicitStoreConvert(graph, valueKind, cas.expected());
         ValueNode newValue = implicitStoreConvert(graph, valueKind, cas.newValue());
 
-        AddressNode address = graph.unique(new OffsetAddressNode(cas.object(), cas.offset()));
+        AddressNode address = createUnsafeAddress(graph, cas.object(), cas.offset());
         BarrierType barrierType = barrierSet.readWriteBarrier(cas.object(), newValue);
         ValueCompareAndSwapNode atomicNode = graph.add(
                         new ValueCompareAndSwapNode(address, expectedValue, newValue, cas.getKilledLocationIdentity(), barrierType, cas.getMemoryOrder()));
@@ -732,7 +737,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
 
         ValueNode newValue = implicitStoreConvert(graph, valueKind, n.newValue());
 
-        AddressNode address = graph.unique(new OffsetAddressNode(n.object(), n.offset()));
+        AddressNode address = createUnsafeAddress(graph, n.object(), n.offset());
         BarrierType barrierType = barrierSet.readWriteBarrier(n.object(), newValue);
         LoweredAtomicReadAndWriteNode memoryRead = graph.add(new LoweredAtomicReadAndWriteNode(address, n.getKilledLocationIdentity(), newValue, barrierType));
         memoryRead.setStateAfter(n.stateAfter());
@@ -749,7 +754,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
 
         ValueNode delta = implicitStoreConvert(graph, valueKind, n.delta());
 
-        AddressNode address = graph.unique(new OffsetAddressNode(n.object(), n.offset()));
+        AddressNode address = createUnsafeAddress(graph, n.object(), n.offset());
         LoweredAtomicReadAndAddNode memoryRead = graph.add(new LoweredAtomicReadAndAddNode(address, n.getKilledLocationIdentity(), delta));
         memoryRead.setStateAfter(n.stateAfter());
 
@@ -787,9 +792,9 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
 
     protected AddressNode createUnsafeAddress(StructuredGraph graph, ValueNode object, ValueNode offset) {
         if (object.isConstant() && object.asConstant().isDefaultForKind()) {
-            return graph.addOrUniqueWithInputs(OffsetAddressNode.create(offset));
+            return graph.addOrUniqueWithInputs(OffsetAddressNode.create(offset, target.wordJavaKind));
         } else {
-            return graph.unique(new OffsetAddressNode(object, offset));
+            return graph.unique(new OffsetAddressNode(object, asWordWidth(graph, offset)));
         }
     }
 
@@ -816,7 +821,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         StructuredGraph graph = load.graph();
         JavaKind readKind = load.getKind();
         Stamp loadStamp = loadStamp(load.stamp(NodeView.DEFAULT), readKind, false);
-        AddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(load.getAddress()));
+        AddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(asWordWidth(graph, load.getAddress()), target.wordJavaKind));
         LocationIdentity location = load.getLocationIdentity();
         ReadNode memoryRead = graph.add(new ReadNode(address, location, loadStamp, barrierSet.readBarrierType(location, address, loadStamp), MemoryOrderMode.PLAIN));
         // An unsafe read must not float otherwise it may float above
@@ -852,7 +857,7 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         assert store.getValue().getStackKind() != JavaKind.Object : Assertions.errorMessageContext("store", store);
         JavaKind valueKind = store.getKind();
         ValueNode value = implicitStoreConvert(graph, valueKind, store.getValue(), false);
-        AddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(store.getAddress()));
+        AddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(asWordWidth(graph, store.getAddress()), target.wordJavaKind));
         WriteNode write = graph.add(new WriteNode(address, store.getKilledLocationIdentity(), value, BarrierType.NONE, MemoryOrderMode.PLAIN));
         write.setStateAfter(store.stateAfter());
         graph.replaceFixedWithFixed(store, write);

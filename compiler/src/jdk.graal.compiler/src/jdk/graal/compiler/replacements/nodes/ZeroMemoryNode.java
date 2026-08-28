@@ -42,6 +42,7 @@ import jdk.graal.compiler.nodes.memory.address.AddressNode;
 import jdk.graal.compiler.nodes.memory.address.OffsetAddressNode;
 import jdk.graal.compiler.nodes.spi.LIRLowerable;
 import jdk.graal.compiler.nodes.spi.NodeLIRBuilderTool;
+import jdk.graal.compiler.word.WordTypes;
 
 /**
  * Zeros a chunk of memory.
@@ -53,8 +54,8 @@ public class ZeroMemoryNode extends FixedAccessNode implements LIRLowerable, Sin
     @Input ValueNode length;
     private final boolean isAligned;
 
-    public ZeroMemoryNode(ValueNode address, ValueNode length, boolean isAligned, LocationIdentity locationIdentity) {
-        this(OffsetAddressNode.create(address), length, isAligned, locationIdentity, BarrierType.NONE);
+    public ZeroMemoryNode(@InjectedNodeParameter WordTypes wordTypes, ValueNode address, ValueNode length, boolean isAligned, LocationIdentity locationIdentity) {
+        this(OffsetAddressNode.create(address, wordTypes.getWordKind()), length, isAligned, locationIdentity, BarrierType.NONE);
     }
 
     public ZeroMemoryNode(AddressNode address, ValueNode length, boolean isAligned, LocationIdentity locationIdentity, BarrierType type) {

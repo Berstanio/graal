@@ -52,6 +52,7 @@ import jdk.graal.compiler.nodes.memory.WriteNode;
 import jdk.graal.compiler.nodes.memory.address.AddressNode;
 import jdk.graal.compiler.nodes.spi.Canonicalizable;
 import jdk.graal.compiler.nodes.spi.CanonicalizerTool;
+import jdk.graal.compiler.nodes.spi.CoreProviders;
 
 /**
  * Intrinsic node for the {@code VectorSupport.store} method. This operation performs a store of a
@@ -89,8 +90,8 @@ public class VectorAPIStoreNode extends VectorAPISinkNode implements Canonicaliz
         this.stateAfter = stateAfter;
     }
 
-    public static VectorAPIStoreNode create(MacroParams p, SimdStamp inputStamp, VectorAPIType storeType, AddressNode address) {
-        AddressNode newAddress = improveAddress(address);
+    public static VectorAPIStoreNode create(MacroParams p, SimdStamp inputStamp, VectorAPIType storeType, AddressNode address, CoreProviders providers) {
+        AddressNode newAddress = improveAddress(address, providers);
         LocationIdentity location = VectorAPIUtils.memoryLocationIdentity(p.arguments[BASE_ARG_INDEX], p.arguments[CONTAINER_ARG_INDEX], p.arguments[FROM_SEGMENT_ARG_INDEX]);
         return new VectorAPIStoreNode(p, inputStamp, storeType, newAddress, location, null);
     }
@@ -112,7 +113,7 @@ public class VectorAPIStoreNode extends VectorAPISinkNode implements Canonicaliz
         }
 
         SimdStamp newInputStamp = improveVectorStamp(inputStamp, toArgumentArray(), VCLASS_ARG_INDEX, ECLASS_ARG_INDEX, LENGTH_ARG_INDEX, tool);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, tool);
         LocationIdentity newLocation = VectorAPIUtils.memoryLocationIdentity(getArgument(BASE_ARG_INDEX), getArgument(CONTAINER_ARG_INDEX), getArgument(FROM_SEGMENT_ARG_INDEX));
         if (newInputStamp != inputStamp || newAddress != address || !newLocation.equals(location)) {
             ValueNode vClass = arguments.get(VCLASS_ARG_INDEX);

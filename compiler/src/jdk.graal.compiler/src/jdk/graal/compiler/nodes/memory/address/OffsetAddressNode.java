@@ -24,6 +24,8 @@
  */
 package jdk.graal.compiler.nodes.memory.address;
 
+import org.graalvm.word.WordBase;
+
 import jdk.graal.compiler.core.common.type.AbstractPointerStamp;
 import jdk.graal.compiler.core.common.type.IntegerStamp;
 import jdk.graal.compiler.core.common.type.PrimitiveStamp;
@@ -54,22 +56,25 @@ public class OffsetAddressNode extends AddressNode implements Canonicalizable {
     @Node.Input ValueNode base;
     @Node.Input ValueNode offset;
 
+    private static boolean assertOperands(ValueNode base, ValueNode offset) {
+        assert base != null && offset != null;
+        Stamp baseStamp = base.stamp(NodeView.DEFAULT);
+        Stamp offsetStamp = offset.stamp(NodeView.DEFAULT);
+        assert offsetStamp instanceof IntegerStamp : Assertions.errorMessageContext("base", base, "offset", offset);
+        assert baseStamp instanceof AbstractPointerStamp || PrimitiveStamp.getBits(baseStamp) == PrimitiveStamp.getBits(offsetStamp)
+                : Assertions.errorMessageContext("base", base, "offset", offset);
+        return true;
+    }
+
     public OffsetAddressNode(ValueNode base, ValueNode offset) {
         super(TYPE);
         this.base = base;
         this.offset = offset;
-        assert base != null && (base.stamp(NodeView.DEFAULT) instanceof AbstractPointerStamp || IntegerStamp.getBits(base.stamp(NodeView.DEFAULT)) == 64) &&
-                        offset != null && IntegerStamp.getBits(offset.stamp(NodeView.DEFAULT)) == 64 : "both values must have 64 bits";
+        assert assertOperands(base, offset);
     }
 
-    public static OffsetAddressNode create(ValueNode base) {
-        ValueNode offset;
-        if (base.stamp(NodeView.DEFAULT) instanceof AbstractPointerStamp) {
-            offset = ConstantNode.forIntegerBits(64, 0);
-        } else {
-            offset = ConstantNode.forIntegerBits(PrimitiveStamp.getBits(base.stamp(NodeView.DEFAULT)), 0);
-        }
-        return new OffsetAddressNode(base, offset);
+    public static OffsetAddressNode create(ValueNode base, JavaKind wordKind) {
+        return new OffsetAddressNode(base, ConstantNode.forIntegerBits(wordKind.getBitCount(), 0));
     }
 
     @Override
@@ -80,8 +85,7 @@ public class OffsetAddressNode extends AddressNode implements Canonicalizable {
     public void setBase(ValueNode base) {
         updateUsages(this.base, base);
         this.base = base;
-        assert base != null && (base.stamp(NodeView.DEFAULT) instanceof AbstractPointerStamp || IntegerStamp.getBits(base.stamp(NodeView.DEFAULT)) == 64) : Assertions.errorMessageContext("this",
-                        this, "base", base);
+        assert assertOperands(base, offset);
     }
 
     public ValueNode getOffset() {
@@ -91,8 +95,7 @@ public class OffsetAddressNode extends AddressNode implements Canonicalizable {
     public void setOffset(ValueNode offset) {
         updateUsages(this.offset, offset);
         this.offset = offset;
-        assert offset != null;
-        assert IntegerStamp.getBits(offset.stamp(NodeView.DEFAULT)) == 64 : Assertions.errorMessageContext("offset", offset, "this", this);
+        assert assertOperands(base, offset);
     }
 
     @Override
@@ -112,7 +115,7 @@ public class OffsetAddressNode extends AddressNode implements Canonicalizable {
     }
 
     @Node.NodeIntrinsic
-    public static native Address address(Object base, long offset);
+    public static native Address address(Object base, WordBase offset);
 
     @Override
     public long getMaxConstantDisplacement() {

@@ -44,6 +44,7 @@ import jdk.graal.compiler.nodes.memory.address.OffsetAddressNode;
 import jdk.graal.compiler.nodes.spi.LIRLowerable;
 import jdk.graal.compiler.nodes.spi.NodeLIRBuilderTool;
 import jdk.vm.ci.meta.JavaConstant;
+import jdk.vm.ci.meta.JavaKind;
 
 @NodeInfo(allowedUsageTypes = Guard, cycles = CYCLES_2, size = SIZE_2)
 public final class NullCheckNode extends ImplicitNullCheckNode implements LIRLowerable, GuardingNode {
@@ -64,16 +65,16 @@ public final class NullCheckNode extends ImplicitNullCheckNode implements LIRLow
         this.deoptSpeculation = deoptSpeculation;
     }
 
-    public static NullCheckNode create(ValueNode object, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation) {
+    public static NullCheckNode create(ValueNode object, JavaKind wordKind, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation) {
         // Try to uncompress a compressed object before applying null check.
-        NullCheckNode nullCheck = tryUseUncompressedNullCheck(object);
+        NullCheckNode nullCheck = tryUseUncompressedNullCheck(object, wordKind);
         if (nullCheck != null) {
             return nullCheck;
         }
         return new NullCheckNode(object, deoptReasonAndAction, deoptSpeculation);
     }
 
-    private static NullCheckNode tryUseUncompressedNullCheck(ValueNode value) {
+    private static NullCheckNode tryUseUncompressedNullCheck(ValueNode value, JavaKind wordKind) {
         Stamp stamp = value.stamp(NodeView.DEFAULT);
         // Do nothing if the value is not a compressed pointer.
         if (!(stamp instanceof AbstractPointerStamp) || !((AbstractPointerStamp) stamp).isCompressed()) {
@@ -100,7 +101,7 @@ public final class NullCheckNode extends ImplicitNullCheckNode implements LIRLow
         Graph graph = value.graph();
         CompressionNode compression = (CompressionNode) uncompressed.copyWithInputs(false);
         compression = graph.addOrUniqueWithInputs(compression);
-        OffsetAddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(compression));
+        OffsetAddressNode address = graph.addOrUniqueWithInputs(OffsetAddressNode.create(compression, wordKind));
         return new NullCheckNode(address);
     }
 

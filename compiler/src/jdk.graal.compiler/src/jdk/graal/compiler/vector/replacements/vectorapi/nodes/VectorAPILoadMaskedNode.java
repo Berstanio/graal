@@ -90,7 +90,7 @@ public class VectorAPILoadMaskedNode extends VectorAPIMacroNode implements Canon
 
     public static VectorAPILoadMaskedNode create(MacroParams params, VectorAPIType loadType, AddressNode address, CoreProviders providers) {
         SimdStamp loadStamp = improveVectorStamp(null, params.arguments, VCLASS_ARG_INDEX, ECLASS_ARG_INDEX, LENGTH_ARG_INDEX, providers);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, providers);
         LocationIdentity location = VectorAPIUtils.memoryLocationIdentity(params.arguments[BASE_ARG_INDEX], params.arguments[CONTAINER_ARG_INDEX], params.arguments[FROM_SEGMENT_ARG_INDEX]);
         return new VectorAPILoadMaskedNode(params, loadStamp, loadType, newAddress, location, null);
     }
@@ -119,7 +119,7 @@ public class VectorAPILoadMaskedNode extends VectorAPIMacroNode implements Canon
 
         ObjectStamp newSpeciesStamp = improveSpeciesStamp(tool, VCLASS_ARG_INDEX);
         SimdStamp newLoadStamp = improveVectorStamp(loadStamp, toArgumentArray(), VCLASS_ARG_INDEX, ECLASS_ARG_INDEX, LENGTH_ARG_INDEX, tool);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, tool);
         LocationIdentity newLocation = VectorAPIUtils.memoryLocationIdentity(getArgument(BASE_ARG_INDEX), getArgument(CONTAINER_ARG_INDEX), getArgument(FROM_SEGMENT_ARG_INDEX));
         if (newSpeciesStamp != speciesStamp || newLoadStamp != loadStamp || newAddress != address || !newLocation.equals(location)) {
             ValueNode vClass = getArgument(VCLASS_ARG_INDEX);

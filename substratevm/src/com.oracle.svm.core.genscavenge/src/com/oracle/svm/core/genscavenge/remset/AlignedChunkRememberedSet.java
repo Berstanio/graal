@@ -153,7 +153,7 @@ public final class AlignedChunkRememberedSet {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static void dirtyAllReferencesOf(Object obj) {
-        ForcedSerialPostWriteBarrier.force(OffsetAddressNode.address(obj, 0), false);
+        ForcedSerialPostWriteBarrier.force(OffsetAddressNode.address(obj, Word.zero()), false);
     }
 
     @Uninterruptible(reason = CORE_GC_CODE)

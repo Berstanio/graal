@@ -144,9 +144,10 @@ public class UseTrappingNullChecksPhase extends UseTrappingOperationPhase {
     }
 
     @Override
-    public DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation) {
+    public DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation,
+                    LowTierContext context) {
         IsNullNode isNullNode = (IsNullNode) condition;
-        return graph.add(NullCheckNode.create(isNullNode.getValue(), deoptReasonAndAction, deoptSpeculation));
+        return graph.add(NullCheckNode.create(isNullNode.getValue(), context.getWordTypes().getWordKind(), deoptReasonAndAction, deoptSpeculation));
     }
 
     @Override

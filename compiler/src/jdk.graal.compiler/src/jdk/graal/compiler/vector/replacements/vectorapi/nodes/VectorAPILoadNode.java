@@ -91,7 +91,7 @@ public class VectorAPILoadNode extends VectorAPIMacroNode implements Canonicaliz
 
     public static VectorAPILoadNode create(MacroParams params, VectorAPIType loadType, AddressNode address, CoreProviders providers) {
         SimdStamp loadStamp = improveVectorStamp(null, params.arguments, VMCLASS_ARG_INDEX, ECLASS_ARG_INDEX, LENGTH_ARG_INDEX, providers);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, providers);
         LocationIdentity location = VectorAPIUtils.memoryLocationIdentity(params.arguments[BASE_ARG_INDEX], params.arguments[CONTAINER_ARG_INDEX], params.arguments[FROM_SEGMENT_ARG_INDEX]);
         return new VectorAPILoadNode(params, loadStamp, loadType, newAddress, location, null);
     }
@@ -116,7 +116,7 @@ public class VectorAPILoadNode extends VectorAPIMacroNode implements Canonicaliz
 
         ObjectStamp newSpeciesStamp = improveSpeciesStamp(tool, VMCLASS_ARG_INDEX);
         SimdStamp newLoadStamp = improveVectorStamp(loadStamp, toArgumentArray(), VMCLASS_ARG_INDEX, ECLASS_ARG_INDEX, LENGTH_ARG_INDEX, tool);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, tool);
         LocationIdentity newLocation = VectorAPIUtils.memoryLocationIdentity(getArgument(BASE_ARG_INDEX), getArgument(CONTAINER_ARG_INDEX), getArgument(FROM_SEGMENT_ARG_INDEX));
         if (newSpeciesStamp != speciesStamp || newLoadStamp != loadStamp || newAddress != address || !newLocation.equals(location)) {
             ValueNode vmClass = arguments.get(VMCLASS_ARG_INDEX);

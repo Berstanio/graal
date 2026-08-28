@@ -44,6 +44,7 @@ import jdk.graal.compiler.nodes.ValueNode;
 import jdk.graal.compiler.nodes.memory.address.AddressNode;
 import jdk.graal.compiler.nodes.spi.Canonicalizable;
 import jdk.graal.compiler.nodes.spi.CanonicalizerTool;
+import jdk.graal.compiler.nodes.spi.CoreProviders;
 import jdk.graal.compiler.vector.architecture.VectorArchitecture;
 import jdk.graal.compiler.vector.nodes.simd.SimdMaskedWriteNode;
 import jdk.graal.compiler.vector.nodes.simd.SimdStamp;
@@ -82,8 +83,8 @@ public class VectorAPIStoreMaskedNode extends VectorAPISinkNode implements Canon
         this.stateAfter = stateAfter;
     }
 
-    public static VectorAPIStoreMaskedNode create(MacroParams p, VectorAPIType storeType, AddressNode address) {
-        AddressNode newAddress = improveAddress(address);
+    public static VectorAPIStoreMaskedNode create(MacroParams p, VectorAPIType storeType, AddressNode address, CoreProviders providers) {
+        AddressNode newAddress = improveAddress(address, providers);
         LocationIdentity location = VectorAPIUtils.memoryLocationIdentity(p.arguments[BASE_ARG_INDEX], p.arguments[CONTAINER_ARG_INDEX], p.arguments[FROM_SEGMENT_ARG_INDEX]);
         return new VectorAPIStoreMaskedNode(p, storeType, newAddress, location, null);
     }
@@ -104,7 +105,7 @@ public class VectorAPIStoreMaskedNode extends VectorAPISinkNode implements Canon
     @Override
     public Node canonical(CanonicalizerTool tool) {
         VectorAPIType newStoreType = VectorAPIType.ofConstant(getArgument(VCLASS_ARG_INDEX), tool);
-        AddressNode newAddress = improveAddress(address);
+        AddressNode newAddress = improveAddress(address, tool);
         LocationIdentity newLocation = VectorAPIUtils.memoryLocationIdentity(getArgument(BASE_ARG_INDEX), getArgument(CONTAINER_ARG_INDEX), getArgument(FROM_SEGMENT_ARG_INDEX));
         if (newStoreType != storeType || newAddress != address || !newLocation.equals(location)) {
             return new VectorAPIStoreMaskedNode(copyParams(), newStoreType, newAddress, newLocation, stateAfter());

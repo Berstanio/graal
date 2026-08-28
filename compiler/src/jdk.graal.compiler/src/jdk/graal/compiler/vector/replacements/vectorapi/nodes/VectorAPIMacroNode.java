@@ -217,9 +217,9 @@ public abstract class VectorAPIMacroNode extends MacroWithExceptionNode implemen
      * address (from a MemorySegment access). In this case, we must remove the base altogether,
      * since the null pointer is not necessarily all zero bits.
      */
-    protected static AddressNode improveAddress(AddressNode address) {
+    protected static AddressNode improveAddress(AddressNode address, CoreProviders providers) {
         if (address instanceof OffsetAddressNode offsetAddress && offsetAddress.getBase() != null && offsetAddress.getBase().isNullConstant()) {
-            return OffsetAddressNode.create(offsetAddress.getOffset());
+            return OffsetAddressNode.create(offsetAddress.getOffset(), providers.getWordTypes().getWordKind());
         }
         return address;
     }

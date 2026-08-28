@@ -316,7 +316,7 @@ public class VectorAPIIntrinsics {
                 VectorAPIType storeType = VectorAPIType.ofConstant(vClass, b);
                 AddressNode address = VectorAPIUtils.buildAddress(base, offset, container, index);
                 MacroParams params = MacroParams.of(b, targetMethod, vClass, eClass, length, base, offset, fromSegment, b.nullCheckedValue(v), container, index, defaultImpl);
-                b.add(VectorAPIStoreNode.create(params, inputStamp, storeType, address));
+                b.add(VectorAPIStoreNode.create(params, inputStamp, storeType, address, b));
                 return true;
             }
         });
@@ -330,7 +330,7 @@ public class VectorAPIIntrinsics {
                 AddressNode address = VectorAPIUtils.buildAddress(base, offset, container, index);
                 MacroParams params = MacroParams.of(b, targetMethod, vClass, mClass, eClass, length, base, offset, fromSegment, b.nullCheckedValue(v), b.nullCheckedValue(m), container, index,
                                 defaultImpl);
-                b.add(VectorAPIStoreMaskedNode.create(params, storeType, address));
+                b.add(VectorAPIStoreMaskedNode.create(params, storeType, address, b));
                 return true;
             }
         });

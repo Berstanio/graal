@@ -167,7 +167,8 @@ public class UseTrappingDivPhase extends BasePhase<LowTierContext> {
         }
 
         @Override
-        public DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation) {
+        public DeoptimizingFixedWithNextNode createImplicitNode(StructuredGraph graph, LogicNode condition, JavaConstant deoptReasonAndAction, JavaConstant deoptSpeculation,
+                        LowTierContext context) {
             assert condition instanceof IntegerEqualsNode : condition;
             IntegerEqualsNode ieq = (IntegerEqualsNode) condition;
             IntegerDivRemNode divRem = trappingReplaceTargets.get(ieq);
