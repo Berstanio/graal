@@ -224,11 +224,15 @@ public class SubstrateOptions {
 
     @Fold
     public static boolean useCompressedReferences() {
+        boolean narrowable = SubstrateTarget.getWordSize() > Integer.BYTES;
         Boolean value = ConcealedOptions.UseCompressedReferences.getValue();
         if (value != null) {
+            if (value && !narrowable) {
+                throw UserError.invalidOptionValue(ConcealedOptions.UseCompressedReferences, value, "References on a 32-bit target are already word-sized, there is nothing to compress");
+            }
             return value;
         }
-        return true;
+        return narrowable;
     }
 
     /**
