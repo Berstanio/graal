@@ -265,7 +265,7 @@ class LLVMHelperFunctions {
         }
 
         if (shift != 0) {
-            compressed = builder.buildShr(compressed, builder.constantLong(shift));
+            compressed = builder.buildShr(compressed, builder.constantWord(shift));
         }
 
         compressed = builder.buildLLVMIntToPtr(compressed, builder.objectType(true));
@@ -289,7 +289,7 @@ class LLVMHelperFunctions {
         LLVMValueRef heapBase = LLVMIRBuilder.getParam(func, 1);
 
         if (shift != 0) {
-            compressed = builder.buildShl(compressed, builder.constantLong(shift));
+            compressed = builder.buildShl(compressed, builder.constantWord(shift));
         }
 
         LLVMValueRef uncompressed = builder.buildAdd(compressed, heapBase);
