@@ -33,14 +33,18 @@ import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.shared.AlwaysInline;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.AllAccess;
 import com.oracle.svm.shared.singletons.traits.BuiltinTraits.NoLayeredCallbacks;
 import com.oracle.svm.shared.singletons.traits.SingletonLayeredInstallationKind.Duplicable;
 import com.oracle.svm.shared.singletons.traits.SingletonTraits;
 
+import com.oracle.svm.core.util.UnsignedUtils;
+
 import jdk.graal.compiler.api.replacements.Fold;
 import jdk.graal.compiler.core.common.CompressEncoding;
+import jdk.graal.compiler.core.common.NumUtil;
 import org.graalvm.word.impl.BarrieredAccess;
 import org.graalvm.word.impl.ObjectAccess;
 
@@ -108,14 +112,15 @@ public class ReferenceAccessImpl implements ReferenceAccess {
     @Fold
     @Override
     public UnsignedWord getMaxAddressSpaceSize() {
-        int referenceSize = ObjectLayout.singleton().getReferenceSize();
-        if (referenceSize == Integer.BYTES) {
-            int compressionShift = ReferenceAccess.singleton().getCompressEncoding().getShift();
-            return Word.unsigned(1L << (referenceSize * Byte.SIZE)).shiftLeft(compressionShift);
+        int wordBits = SubstrateTarget.getWordSize() * Byte.SIZE;
+        // What the architecture can address: the usable virtual address bits, at most a word.
+        UnsignedWord architectureLimit = Word.unsigned(NumUtil.maxValueUnsigned(Math.min(48, wordBits)));
+        // What the reference encoding can span: the reference bits, widened by the shift.
+        int encodableBits = ObjectLayout.singleton().getReferenceSize() * Byte.SIZE + getCompressEncoding().getShift();
+        if (encodableBits < wordBits) {
+            return UnsignedUtils.min(Word.unsigned(1L << encodableBits), architectureLimit);
         }
-        assert referenceSize == Long.BYTES;
-        // Assume that 48 bit is the maximum address space that can be used.
-        return Word.unsigned((1L << 48) - 1);
+        return architectureLimit;
     }
 
     @Fold
