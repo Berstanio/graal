@@ -50,3 +50,31 @@ int sys_param_howmany(int x, int y) {
   return howmany(x, y);
 }
 #endif // (defined(__APPLE__) || defined(__linux__))
+
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
+/*
+ * Macros from the ARM EHABI <unwind.h> (GCC's unwind-arm-common.h) made available as C functions.
+ */
+
+#include <unwind.h>
+
+_Unwind_Word (_Unwind_GetIP)(struct _Unwind_Context *context) {
+  return _Unwind_GetIP(context);
+}
+
+_Unwind_Word (_Unwind_GetIPInfo)(struct _Unwind_Context *context, int *ip_before_insn) {
+  return _Unwind_GetIPInfo(context, ip_before_insn);
+}
+
+void (_Unwind_SetIP)(struct _Unwind_Context *context, _Unwind_Word val) {
+  _Unwind_SetIP(context, val);
+}
+
+/*
+ * Unlike the three above, _Unwind_SetGR is a static inline function in the header, not a macro, so
+ * it can't keep its name. It is renamed instead.
+ */
+void _Unwind_SetGR_EHABI(struct _Unwind_Context *context, int regno, _Unwind_Word val) {
+  _Unwind_SetGR(context, regno, val);
+}
+#endif // defined(__arm__) && !defined(__ARM_DWARF_EH__)
