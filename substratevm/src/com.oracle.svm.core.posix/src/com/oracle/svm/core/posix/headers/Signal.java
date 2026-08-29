@@ -44,6 +44,7 @@ import org.graalvm.nativeimage.c.struct.CStruct;
 import org.graalvm.nativeimage.c.type.VoidPointer;
 import org.graalvm.nativeimage.c.type.WordPointer;
 import org.graalvm.word.PointerBase;
+import org.graalvm.word.UnsignedWord;
 
 import com.oracle.svm.core.RegisterDumper;
 import com.oracle.svm.core.SubstrateSegfaultHandler;
@@ -133,6 +134,10 @@ public class Signal {
         @CFieldAddress("uc_mcontext")
         @Platforms({Platform.LINUX_RISCV64.class})
         mcontext_linux_riscv64_t uc_mcontext_linux_riscv64();
+
+        @CFieldAddress("uc_mcontext")
+        @Platforms({Platform.LINUX_ARM32_BASE.class})
+        mcontext_linux_arm32_t uc_mcontext_linux_arm32();
 
         @CField("uc_mcontext")
         @Platforms({Platform.DARWIN_AMD64.class})
@@ -390,6 +395,82 @@ public class Signal {
     public interface mcontext_linux_riscv64_t extends PointerBase {
         @CFieldAddress(value = "__gregs")
         GregsPointer gregs();
+    }
+
+    /**
+     * Reference:<br>
+     * <cite></cite>https://github.com/torvalds/linux/blob/9e1ff307c779ce1f0f810c7ecce3d95bbae40896/arch/arm/include/uapi/asm/sigcontext.h</cite>
+     */
+    @CStruct(value = "mcontext_t")
+    @Platforms({Platform.LINUX_ARM32_BASE.class})
+    public interface mcontext_linux_arm32_t extends PointerBase {
+        @CField
+        UnsignedWord trap_no();
+
+        @CField
+        UnsignedWord error_code();
+
+        @CField
+        UnsignedWord oldmask();
+
+        @CField
+        UnsignedWord arm_r0();
+
+        @CField
+        UnsignedWord arm_r1();
+
+        @CField
+        UnsignedWord arm_r2();
+
+        @CField
+        UnsignedWord arm_r3();
+
+        @CField
+        UnsignedWord arm_r4();
+
+        @CField
+        UnsignedWord arm_r5();
+
+        @CField
+        UnsignedWord arm_r6();
+
+        @CField
+        UnsignedWord arm_r7();
+
+        @CField
+        UnsignedWord arm_r8();
+
+        @CField
+        UnsignedWord arm_r9();
+
+        @CField
+        UnsignedWord arm_r10();
+
+        /** {@code r11}. */
+        @CField
+        UnsignedWord arm_fp();
+
+        /** {@code r12}. */
+        @CField
+        UnsignedWord arm_ip();
+
+        /** {@code r13}. */
+        @CField
+        UnsignedWord arm_sp();
+
+        /** {@code r14}. */
+        @CField
+        UnsignedWord arm_lr();
+
+        /** {@code r15}. */
+        @CField
+        UnsignedWord arm_pc();
+
+        @CField
+        UnsignedWord arm_cpsr();
+
+        @CField
+        UnsignedWord fault_address();
     }
 
     /**
