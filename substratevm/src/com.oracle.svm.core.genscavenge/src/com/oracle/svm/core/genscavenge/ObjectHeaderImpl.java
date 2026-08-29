@@ -155,7 +155,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     @Override
     public Word readHeaderFromPointer(Pointer objectPointer) {
-        if (getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             return Word.unsigned(objectPointer.readInt(getHubOffset()));
         }
         return objectPointer.readWord(getHubOffset());
@@ -164,7 +164,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     @Override
     public Word readHeaderFromObject(Object o) {
-        if (getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             return Word.unsigned(ObjectAccess.readInt(o, getHubOffset()));
         }
         return ObjectAccess.readWord(o, getHubOffset());
@@ -252,7 +252,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     private static void writeHeaderToObject(Object o, WordBase header) {
-        if (getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             ObjectAccess.writeInt(o, getHubOffset(), (int) header.rawValue());
         } else {
             ObjectAccess.writeWord(o, getHubOffset(), header);
@@ -299,7 +299,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public static boolean isProducedHeapChunkZapped(UnsignedWord header) {
-        if (getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             return header.equal(HeapParameters.getProducedHeapChunkZapInt());
         } else {
             return header.equal(HeapParameters.getProducedHeapChunkZapWord());
@@ -308,7 +308,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public static boolean isConsumedHeapChunkZapped(UnsignedWord header) {
-        if (getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             return header.equal(HeapParameters.getConsumedHeapChunkZapInt());
         } else {
             return header.equal(HeapParameters.getConsumedHeapChunkZapWord());
@@ -335,7 +335,7 @@ public final class ObjectHeaderImpl extends ObjectHeader {
     @Override
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     public void verifyDynamicHubOffset(long offsetFromHeapBase) {
-        long referenceSizeMask = getReferenceSize() == Integer.BYTES ? 0xFFFF_FFFFL : -1L;
+        long referenceSizeMask = ObjectLayout.hasFourByteReferences() ? 0xFFFF_FFFFL : -1L;
         long encoded = (offsetFromHeapBase << numReservedExtraHubBits) & referenceSizeMask;
         boolean shiftLosesInformation = (encoded >>> numReservedExtraHubBits != offsetFromHeapBase);
         if (shiftLosesInformation) {

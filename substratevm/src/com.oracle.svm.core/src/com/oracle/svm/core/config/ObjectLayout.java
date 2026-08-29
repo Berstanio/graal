@@ -155,6 +155,11 @@ public final class ObjectLayout {
         return referenceSize;
     }
 
+    @Fold
+    public static boolean hasFourByteReferences() {
+        return singleton().getReferenceSize() == Integer.BYTES;
+    }
+
     /**
      * The size (in bytes) of values with the given kind.
      */

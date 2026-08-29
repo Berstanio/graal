@@ -81,7 +81,7 @@ public final class DerivedReferenceSupport {
             rawReference = uncompressedOffset.unsignedShiftRight(compressionShift);
         }
 
-        if (ObjectLayout.singleton().getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             referenceSlot.writeInt(0, (int) rawReference.rawValue());
         } else {
             assert ObjectLayout.singleton().getReferenceSize() == Long.BYTES;
@@ -91,7 +91,7 @@ public final class DerivedReferenceSupport {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     private static UnsignedWord readRawCompressedReference(Pointer referenceSlot) {
-        if (ObjectLayout.singleton().getReferenceSize() == Integer.BYTES) {
+        if (ObjectLayout.hasFourByteReferences()) {
             return Word.unsigned(referenceSlot.readInt(0) & 0xFFFFFFFFL);
         }
 

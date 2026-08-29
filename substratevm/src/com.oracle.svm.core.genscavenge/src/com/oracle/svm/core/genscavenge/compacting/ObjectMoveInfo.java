@@ -89,7 +89,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static void setNewAddress(Pointer objSeqStart, Pointer newAddress) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             long offset = newAddress.subtract(KnownIntrinsics.heapBase()).rawValue();
             offset /= ObjectLayout.singleton().getAlignment();
             objSeqStart.writeInt(-8, NumUtil.safeToUInt(offset));
@@ -101,7 +101,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static Pointer getNewAddress(Pointer objSeqStart) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             long offset = objSeqStart.readInt(-8) & 0xffff_ffffL;
             offset *= ObjectLayout.singleton().getAlignment();
             return KnownIntrinsics.heapBase().add(Word.unsigned(offset));
@@ -112,7 +112,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static void setObjectSeqSize(Pointer objSeqStart, UnsignedWord nbytes) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             UnsignedWord value = nbytes.unsignedDivide(ObjectLayout.singleton().getAlignment());
             objSeqStart.writeShort(-4, (short) value.rawValue());
         } else {
@@ -123,7 +123,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static UnsignedWord getObjectSeqSize(Pointer objSeqStart) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             UnsignedWord value = Word.unsigned(objSeqStart.readShort(-4) & 0xffff);
             return value.multiply(ObjectLayout.singleton().getAlignment());
         } else {
@@ -133,7 +133,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static void setNextObjectSeqOffset(Pointer objSeqStart, UnsignedWord offset) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             UnsignedWord value = offset.unsignedDivide(ObjectLayout.singleton().getAlignment());
             objSeqStart.writeShort(-2, (short) value.rawValue());
         } else {
@@ -144,7 +144,7 @@ public final class ObjectMoveInfo {
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     static UnsignedWord getNextObjectSeqOffset(Pointer objSeqStart) {
-        if (useCompressedLayout()) {
+        if (useEightByteLayout()) {
             UnsignedWord value = Word.unsigned(objSeqStart.readShort(-2) & 0xffff);
             return value.multiply(ObjectLayout.singleton().getAlignment());
         } else {
@@ -162,8 +162,8 @@ public final class ObjectMoveInfo {
     }
 
     @Fold
-    static boolean useCompressedLayout() {
-        return ObjectLayout.singleton().getReferenceSize() == Integer.BYTES;
+    static boolean useEightByteLayout() {
+        return ObjectLayout.hasFourByteReferences();
     }
 
     /**
@@ -244,7 +244,7 @@ public final class ObjectMoveInfo {
     }
 
     public static int getSize() {
-        return useCompressedLayout() ? 8 : 16;
+        return useEightByteLayout() ? 8 : 16;
     }
 
     @AlwaysInline("GC performance: enables non-virtual visitor call")
