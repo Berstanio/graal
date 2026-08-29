@@ -33,8 +33,11 @@ import org.graalvm.word.SignedWord;
 import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.core.NeverInline;
+import com.oracle.svm.core.jni.JNIObjectHandles;
 import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.shared.util.VMError;
+
+import jdk.graal.compiler.core.common.NumUtil;
 
 /**
  * Implementation of local object handles, which are bound to a specific thread and can be created
@@ -45,7 +48,7 @@ public final class ThreadLocalHandles<T extends ObjectHandle> {
     private static final int INITIAL_NUMBER_OF_FRAMES = 4;
 
     public static final int MIN_VALUE = Math.toIntExact(1 + nullHandle().rawValue());
-    public static final int MAX_VALUE = Integer.MAX_VALUE;
+    public static final int MAX_VALUE = (int) Math.min(Integer.MAX_VALUE, NumUtil.maxValueUnsigned(JNIObjectHandles.WordLayout.PAYLOAD_BITS));
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public static <U extends SignedWord> U nullHandle() {

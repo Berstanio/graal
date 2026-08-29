@@ -29,9 +29,12 @@ import java.lang.ref.WeakReference;
 import org.graalvm.nativeimage.ObjectHandle;
 import org.graalvm.nativeimage.ObjectHandles;
 import org.graalvm.word.SignedWord;
+
+import com.oracle.svm.core.SubstrateTarget;
 import org.graalvm.word.impl.Word;
 import org.graalvm.word.WordBase;
 
+import jdk.graal.compiler.core.common.NumUtil;
 import jdk.internal.misc.Unsafe;
 
 /**
@@ -73,7 +76,7 @@ public final class ObjectHandlesImpl implements ObjectHandles {
     private volatile long unusedHandleSearchIndex = 0;
 
     public ObjectHandlesImpl() {
-        this(Word.signed(1), Word.signed(Long.MAX_VALUE), Word.signed(0));
+        this(Word.signed(1), Word.signed(NumUtil.maxValue(SubstrateTarget.getWordBits())), Word.signed(0));
     }
 
     public ObjectHandlesImpl(SignedWord rangeMin, SignedWord rangeMax, SignedWord nullHandle) {

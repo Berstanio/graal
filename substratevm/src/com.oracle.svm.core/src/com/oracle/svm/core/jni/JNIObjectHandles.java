@@ -31,6 +31,7 @@ import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.core.Isolates;
 import com.oracle.svm.core.NeverInline;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.handles.ObjectHandlesImpl;
 import com.oracle.svm.core.handles.ThreadLocalHandles;
 import com.oracle.svm.core.heap.Heap;
@@ -41,6 +42,7 @@ import com.oracle.svm.guest.staging.core.threadlocal.FastThreadLocalFactory;
 import com.oracle.svm.guest.staging.core.threadlocal.FastThreadLocalObject;
 import com.oracle.svm.shared.Uninterruptible;
 
+import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.nodes.extended.BranchProbabilityNode;
 
 /**
@@ -61,6 +63,18 @@ import jdk.graal.compiler.nodes.extended.BranchProbabilityNode;
  * </ul>
  */
 public final class JNIObjectHandles {
+
+    public static final class WordLayout {
+        public static final int SIGN_BITS = 1;
+        public static final int IMAGE_HEAP_TAG_BITS = 2;
+        public static final int NON_SIGN_BITS = SubstrateTarget.getWordBits() - SIGN_BITS;
+        public static final int PAYLOAD_BITS = NON_SIGN_BITS - IMAGE_HEAP_TAG_BITS;
+        public static final SignedWord SIGN_BIT = Word.signed(1L << (SubstrateTarget.getWordBits() - 1));
+
+        private WordLayout() {
+        }
+    }
+
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public static <T extends SignedWord> T nullHandle() {
         return ThreadLocalHandles.nullHandle();
@@ -273,18 +287,19 @@ public final class JNIObjectHandles {
  * unaware of isolates.
  */
 final class JNIGlobalHandles {
-    static final SignedWord MIN_VALUE = Word.signed(Long.MIN_VALUE);
-    static final SignedWord MAX_VALUE = JNIObjectHandles.nullHandle().subtract(1);
     static {
         assert JNIObjectHandles.nullHandle().equal(Word.zero());
     }
 
-    private static final int HANDLE_BITS_COUNT = 31;
+    private static final int VALIDATION_BITS_COUNT = SubstrateTarget.getWordBits() == Long.SIZE ? Integer.SIZE : Byte.SIZE;
+    private static final int HANDLE_BITS_COUNT = JNIObjectHandles.WordLayout.NON_SIGN_BITS - VALIDATION_BITS_COUNT;
     private static final SignedWord HANDLE_BITS_MASK = Word.signed((1L << HANDLE_BITS_COUNT) - 1);
     private static final int VALIDATION_BITS_SHIFT = HANDLE_BITS_COUNT;
-    private static final int VALIDATION_BITS_COUNT = 32;
-    private static final SignedWord VALIDATION_BITS_MASK = Word.signed((1L << VALIDATION_BITS_COUNT) - 1).shiftLeft(VALIDATION_BITS_SHIFT);
-    private static final SignedWord MSB = Word.signed(1L << 63);
+    private static final long VALIDATION_VALUE_MASK = (1L << VALIDATION_BITS_COUNT) - 1;
+    private static final SignedWord VALIDATION_BITS_MASK = Word.signed(VALIDATION_VALUE_MASK).shiftLeft(VALIDATION_BITS_SHIFT);
+
+    static final SignedWord MIN_VALUE = Word.signed(NumUtil.minValue(SubstrateTarget.getWordBits()));
+    static final SignedWord MAX_VALUE = JNIObjectHandles.nullHandle().subtract(1);
     private static final ObjectHandlesImpl globalHandles = new ObjectHandlesImpl(JNIObjectHandles.nullHandle().add(1), HANDLE_BITS_MASK, JNIObjectHandles.nullHandle());
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
@@ -293,8 +308,7 @@ final class JNIGlobalHandles {
     }
 
     private static Word isolateHash() {
-        int isolateHash = Long.hashCode(Isolates.getIsolateId());
-        return Word.unsigned(isolateHash);
+        return Word.unsigned(Long.hashCode(Isolates.getIsolateId()) & VALIDATION_VALUE_MASK);
     }
 
     private static JNIObjectHandle encode(ObjectHandle handle) {
@@ -303,7 +317,7 @@ final class JNIGlobalHandles {
         Word v = isolateHash().shiftLeft(VALIDATION_BITS_SHIFT);
         assert v.and(VALIDATION_BITS_MASK).equal(v) : "validation value must fit in its range";
         h = h.or(v);
-        h = h.or(MSB);
+        h = h.or(JNIObjectHandles.WordLayout.SIGN_BIT);
         assert isInRange((JNIObjectHandle) h);
         return (JNIObjectHandle) h;
     }
@@ -372,7 +386,7 @@ final class JNIGlobalHandles {
  * JNI specification (in particular, for function {@code GetObjectRefType}).
  */
 final class JNIImageHeapHandles {
-    private static final int OBJ_OFFSET_BITS_COUNT = 32;
+    private static final int OBJ_OFFSET_BITS_COUNT = Math.min(32, JNIObjectHandles.WordLayout.PAYLOAD_BITS);
     private static final Word OBJ_OFFSET_BITS_MASK = Word.unsigned((1L << OBJ_OFFSET_BITS_COUNT) - 1);
     private static final SignedWord LOCAL_RANGE_MIN = Word.signed(0b01).shiftLeft(OBJ_OFFSET_BITS_COUNT);
     private static final SignedWord GLOBAL_RANGE_MIN = Word.signed(0b10).shiftLeft(OBJ_OFFSET_BITS_COUNT);
