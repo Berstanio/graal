@@ -35,6 +35,7 @@ import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.shared.BuildPhaseProvider.ReadyForCompilation;
 import com.oracle.svm.core.StaticFieldsSupport;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.heap.UnknownPrimitiveField;
 import com.oracle.svm.core.imagelayer.ImageLayerBuildingSupport;
 import com.oracle.svm.core.jni.headers.JNIFieldId;
@@ -49,7 +50,7 @@ import jdk.vm.ci.meta.JavaKind;
  */
 public final class JNIAccessibleField extends JNIAccessibleMember implements PreservableJNIElement {
     /* 01000000...0 */
-    private static final UnsignedWord ID_STATIC_FLAG = Word.unsigned(-1L).unsignedShiftRight(2).add(1);
+    private static final UnsignedWord ID_STATIC_FLAG = Word.unsigned(1L).shiftLeft(SubstrateTarget.getWordSize() * Byte.SIZE - 2);
     /* 00100000...0 */
     private static final UnsignedWord ID_PRESERVED_FLAG = ID_STATIC_FLAG.unsignedShiftRight(1);
     /* 00010000...0 */

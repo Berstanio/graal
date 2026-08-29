@@ -35,6 +35,7 @@ import org.graalvm.word.WordBase;
 
 import com.oracle.svm.guest.staging.config.SubstrateGuestTarget;
 import com.oracle.svm.shared.util.Utf8;
+import com.oracle.svm.shared.util.VMError;
 
 /**
  * A factory for pre-allocating and pre-initializing chunks of static global data that are located
@@ -166,8 +167,17 @@ public final class CGlobalDataFactory {
      */
     public static <T extends PointerBase> CGlobalData<T> createWord(WordBase initialValue, String symbolName, boolean nonConstant) {
         Supplier<byte[]> supplier = () -> {
-            assert SubstrateGuestTarget.getWordSize() == Long.BYTES : "currently hard-coded for 8 byte words";
-            return ByteBuffer.allocate(Long.BYTES).order(SubstrateGuestTarget.getByteOrder()).putLong(initialValue.rawValue()).array();
+            int wordSize = SubstrateGuestTarget.getWordSize();
+            long rawValue = initialValue.rawValue();
+            ByteBuffer buffer = ByteBuffer.allocate(wordSize).order(SubstrateGuestTarget.getByteOrder());
+            if (wordSize == Long.BYTES) {
+                buffer.putLong(rawValue);
+            } else if (wordSize == Integer.BYTES) {
+                buffer.putInt(Math.toIntExact(rawValue));
+            } else {
+                throw VMError.shouldNotReachHere("Unsupported target word size: " + wordSize);
+            }
+            return buffer.array();
         };
         return new CGlobalDataImpl<>(symbolName, supplier, nonConstant);
     }

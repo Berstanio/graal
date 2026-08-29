@@ -34,6 +34,7 @@ import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.shared.Uninterruptible;
 import com.oracle.svm.guest.staging.core.UnmanagedMemoryUtil;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.genscavenge.HeapChunk;
 import com.oracle.svm.core.genscavenge.HeapImpl;
 import com.oracle.svm.core.genscavenge.SerialGCOptions;
@@ -82,12 +83,21 @@ final class CardTable {
 
     static final byte DIRTY_ENTRY = 0;
     static final byte CLEAN_ENTRY = 1;
-    static final UnsignedWord CLEAN_WORD = Word.unsigned(0x0101010101010101L);
-    static final UnsignedWord DIRTY_WORD = Word.unsigned(0x0000000000000000L);
+    static final UnsignedWord CLEAN_WORD = wordOfBytes(CLEAN_ENTRY);
+    static final UnsignedWord DIRTY_WORD = wordOfBytes(DIRTY_ENTRY);
 
     private static final CardTableVerificationVisitor CARD_TABLE_VERIFICATION_VISITOR = new CardTableVerificationVisitor();
 
     private CardTable() {
+    }
+
+    /** The byte {@code value} repeated in every byte of a machine word. */
+    private static UnsignedWord wordOfBytes(byte value) {
+        UnsignedWord word = Word.zero();
+        for (int i = 0; i < SubstrateTarget.getWordSize(); i++) {
+            word = word.shiftLeft(Byte.SIZE).or(Word.unsigned(value & 0xFF));
+        }
+        return word;
     }
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)

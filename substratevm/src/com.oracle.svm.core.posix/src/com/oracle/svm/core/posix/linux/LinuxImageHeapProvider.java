@@ -107,7 +107,8 @@ import jdk.graal.compiler.nodes.PauseNode;
 @SingletonTraits(access = AllAccess.class, layeredCallbacks = SingleLayer.class, layeredInstallationKind = InitialLayerOnly.class)
 public class LinuxImageHeapProvider extends AbstractImageHeapProvider {
     /** Magic value to verify that a located image file matches our loaded image. */
-    public static final CGlobalData<Pointer> MAGIC = CGlobalDataFactory.createWord(Word.<Word> signed(ThreadLocalRandom.current().nextLong()));
+    public static final CGlobalData<Pointer> MAGIC = CGlobalDataFactory.createWord(
+                    Word.<Word> signed(SubstrateTarget.getWordSize() == Long.BYTES ? ThreadLocalRandom.current().nextLong() : ThreadLocalRandom.current().nextInt()));
 
     private static final CGlobalData<CCharPointer> PROC_SELF_MAPS = CGlobalDataFactory.createCString("/proc/self/maps");
 

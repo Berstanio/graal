@@ -27,6 +27,7 @@ package com.oracle.svm.core.genscavenge;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.heap.GCCause;
 import com.oracle.svm.guest.staging.option.RuntimeOptionKey;
 import com.oracle.svm.core.util.UnsignedUtils;
@@ -57,10 +58,11 @@ final class LibGraalCollectionPolicy extends AdaptiveCollectionPolicy2 {
     protected static final UnsignedWord FULL_GC_BONUS = Word.unsigned(2L * 1024L * 1024L);
 
     /**
-     * See class javadoc for rationale behind this 16G limit.
+     * See class javadoc for rationale behind this 16G limit. That rationale is specific to targets
+     * with an 8-byte word, on a 4-byte word the limits are the whole address range.
      */
-    protected static final UnsignedWord MAXIMUM_HEAP_SIZE = Word.unsigned(16L * 1024L * 1024L * 1024L);
-    protected static final UnsignedWord MAXIMUM_YOUNG_SIZE = Word.unsigned(5L * 1024L * 1024L * 1024L);
+    protected static final UnsignedWord MAXIMUM_HEAP_SIZE = SubstrateTarget.getWordSize() == Long.BYTES ? Word.unsigned(16L * 1024L * 1024L * 1024L) : UnsignedUtils.MAX_VALUE;
+    protected static final UnsignedWord MAXIMUM_YOUNG_SIZE = SubstrateTarget.getWordSize() == Long.BYTES ? Word.unsigned(5L * 1024L * 1024L * 1024L) : UnsignedUtils.MAX_VALUE;
 
     private UnsignedWord sizeBefore = Word.zero();
     private GCCause lastGCCause = null;
