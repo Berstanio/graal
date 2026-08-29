@@ -108,6 +108,7 @@ public class JNIJavaCallWrapperMethod extends NonBytecodeMethod {
         } else if (returnKind.isNumericInteger() || returnKind == JavaKind.Void) {
             // Use long for void and integer return types to increase the reusability of call
             // wrappers. This is fine with our supported 64-bit calling conventions.
+            // It is also fine with little endian ARM32, as it will just occupy r0:r1, and r1 is discarded by callee
             returnKind = JavaKind.Long;
         }
 

@@ -104,6 +104,26 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
         return "invoke" + JNIGraphKit.signatureToIdentifier(targetSignature) + "_" + callVariant.name() + (nonVirtual ? "_Nonvirtual" : "");
     }
 
+    private static boolean varargsFloatingPointGoesInIntegerRegisters(JavaKind kind) {
+        if (kind != JavaKind.Float && kind != JavaKind.Double) {
+            return false;
+        }
+        return Platform.includedIn(Platform.RISCV64.class) || Platform.includedIn(Platform.ARM32.class);
+    }
+
+    private static JavaKind varargsDeclaredReturnKind(CallVariant callVariant, JavaKind returnKind) {
+        if (callVariant != CallVariant.VARARGS || !Platform.includedIn(Platform.ARM32.class)) {
+            return returnKind;
+        }
+        if (returnKind == JavaKind.Float) {
+            return JavaKind.Int;   // jfloat: 4 bytes, r0 alone
+        }
+        if (returnKind == JavaKind.Double) {
+            return JavaKind.Long;  // jdouble: r0:r1
+        }
+        return returnKind;
+    }
+
     private static Signature createSignature(Signature callWrapperSignature, CallVariant callVariant, boolean nonVirtual, MetaAccessProvider originalMetaAccess, WordTypes wordTypes) {
         JavaKind wordKind = wordTypes.getWordKind();
         List<JavaKind> args = new ArrayList<>();
@@ -119,7 +139,7 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
                 JavaKind kind = callWrapperSignature.getParameterKind(i);
                 if (kind.isObject()) {
                     args.add(wordKind); // handle
-                } else if (Platform.includedIn(Platform.RISCV64.class) && (kind == JavaKind.Float || kind == JavaKind.Double)) {
+                } else if (varargsFloatingPointGoesInIntegerRegisters(kind)) {
                     args.add(JavaKind.Long);
                 } else if (kind == JavaKind.Float) {
                     // C varargs promote float to double (C99, 6.5.2.2-6)
@@ -138,6 +158,8 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
         JavaKind returnType = callWrapperSignature.getReturnKind();
         if (returnType.isObject()) {
             returnType = wordKind; // handle
+        } else {
+            returnType = varargsDeclaredReturnKind(callVariant, returnType);
         }
         return ResolvedSignature.fromKinds(args.toArray(JavaKind[]::new), returnType, originalMetaAccess);
     }
@@ -198,7 +220,12 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
         }
 
         kit.invokeJNILeaveIsolate();
-        kit.createReturn(returnValue, returnKind);
+
+        JavaKind declaredReturnKind = varargsDeclaredReturnKind(callVariant, returnKind);
+        if (declaredReturnKind != returnKind) {
+            returnValue = kit.unique(new ReinterpretNode(declaredReturnKind, returnValue));
+        }
+        kit.createReturn(returnValue, declaredReturnKind);
         return kit.finalizeGraph();
     }
 
@@ -258,13 +285,14 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
                 JavaKind kind = invokeSignature.getParameterKind(i);
                 assert kind == kind.getStackKind() : "sub-int conversions and bit masking must happen in JNIJavaCallWrapperMethod";
                 JavaKind loadKind = kind;
-                if (Platform.includedIn(Platform.RISCV64.class) && (kind == JavaKind.Double || kind == JavaKind.Float)) {
+                boolean reinterpretFromLong = varargsFloatingPointGoesInIntegerRegisters(kind);
+                if (reinterpretFromLong) {
                     loadKind = JavaKind.Long;
                 } else if (loadKind == JavaKind.Float) {
                     loadKind = JavaKind.Double; // C varargs promote float to double (C99 6.5.2.2-6)
                 }
                 ValueNode value = kit.loadLocal(slotIndex, loadKind);
-                if (Platform.includedIn(Platform.RISCV64.class) && (kind == JavaKind.Double || kind == JavaKind.Float)) {
+                if (reinterpretFromLong) {
                     value = kit.unique(new ReinterpretNode(JavaKind.Double, value));
                 }
                 if (kind == JavaKind.Float) {
