@@ -589,21 +589,21 @@ public class WordOperationPlugin implements NodePlugin, TypePlugin, InlineInvoke
     }
 
     public ValueNode convert(GraphBuilderContext b, ValueNode value, JavaKind toKind, boolean unsigned) {
-        if (value.getStackKind() == toKind) {
+        JavaKind fromKind = value.getStackKind();
+        if (fromKind == toKind) {
             return value;
         }
 
-        if (toKind == JavaKind.Int) {
-            assert value.getStackKind() == JavaKind.Long : Assertions.errorMessage(value, toKind, unsigned);
-            return b.add(new NarrowNode(value, 32));
+        assert fromKind == JavaKind.Int || fromKind == JavaKind.Long : Assertions.errorMessage(value, toKind, unsigned);
+        assert toKind == JavaKind.Int || toKind == JavaKind.Long : Assertions.errorMessage(value, toKind, unsigned);
+
+        int toBits = toKind.getBitCount();
+        if (toBits < fromKind.getBitCount()) {
+            return b.add(new NarrowNode(value, toBits));
+        } else if (unsigned) {
+            return b.add(new ZeroExtendNode(value, toBits));
         } else {
-            assert toKind == JavaKind.Long : Assertions.errorMessage(value, toKind, unsigned);
-            assert value.getStackKind() == JavaKind.Int : Assertions.errorMessage(value, toKind, unsigned);
-            if (unsigned) {
-                return b.add(new ZeroExtendNode(value, 64));
-            } else {
-                return b.add(new SignExtendNode(value, 64));
-            }
+            return b.add(new SignExtendNode(value, toBits));
         }
     }
 
