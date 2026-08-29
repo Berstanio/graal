@@ -1026,8 +1026,7 @@ public class SubstrateGraphBuilderPlugins {
     }
 
     private static IntegerStamp nonZeroWord() {
-        int bits = SubstrateTarget.getWordSize() * Byte.SIZE;
-        return StampFactory.forUnsignedInteger(bits, 1, NumUtil.maxValueUnsigned(bits));
+        return StampFactory.forUnsignedInteger(SubstrateTarget.getWordBits(), 1, NumUtil.maxValueUnsigned(SubstrateTarget.getWordBits()));
     }
 
     private static void registerStackValuePlugins(InvocationPlugins plugins) {

@@ -388,11 +388,11 @@ public class LLVMIRBuilder implements AutoCloseable {
     }
 
     public LLVMTypeRef wordType() {
-        return integerType(SubstrateTarget.getWordSize() * Byte.SIZE);
+        return integerType(SubstrateTarget.getWordBits());
     }
 
     public static boolean isWordType(LLVMTypeRef type) {
-        return isIntegerType(type) && integerTypeWidth(type) == SubstrateTarget.getWordSize() * Byte.SIZE;
+        return isIntegerType(type) && integerTypeWidth(type) == SubstrateTarget.getWordBits();
     }
 
     public LLVMTypeRef floatType() {

@@ -112,12 +112,11 @@ public class ReferenceAccessImpl implements ReferenceAccess {
     @Fold
     @Override
     public UnsignedWord getMaxAddressSpaceSize() {
-        int wordBits = SubstrateTarget.getWordSize() * Byte.SIZE;
         // What the architecture can address: the usable virtual address bits, at most a word.
-        UnsignedWord architectureLimit = Word.unsigned(NumUtil.maxValueUnsigned(Math.min(48, wordBits)));
+        UnsignedWord architectureLimit = Word.unsigned(NumUtil.maxValueUnsigned(Math.min(48, SubstrateTarget.getWordBits())));
         // What the reference encoding can span: the reference bits, widened by the shift.
         int encodableBits = ObjectLayout.singleton().getReferenceSize() * Byte.SIZE + getCompressEncoding().getShift();
-        if (encodableBits < wordBits) {
+        if (encodableBits < SubstrateTarget.getWordBits()) {
             return UnsignedUtils.min(Word.unsigned(1L << encodableBits), architectureLimit);
         }
         return architectureLimit;

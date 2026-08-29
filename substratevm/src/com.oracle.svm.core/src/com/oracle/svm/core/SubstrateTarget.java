@@ -68,6 +68,11 @@ public class SubstrateTarget extends TargetDescription {
     }
 
     @Fold
+    public static int getWordBits() {
+        return getWordSize() * Byte.SIZE;
+    }
+
+    @Fold
     public static Architecture getArchitecture() {
         return singleton().arch;
     }

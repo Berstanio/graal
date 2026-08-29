@@ -50,7 +50,7 @@ import jdk.vm.ci.meta.JavaKind;
  */
 public final class JNIAccessibleField extends JNIAccessibleMember implements PreservableJNIElement {
     /* 01000000...0 */
-    private static final UnsignedWord ID_STATIC_FLAG = Word.unsigned(1L).shiftLeft(SubstrateTarget.getWordSize() * Byte.SIZE - 2);
+    private static final UnsignedWord ID_STATIC_FLAG = Word.unsigned(1L).shiftLeft(SubstrateTarget.getWordBits() - 2);
     /* 00100000...0 */
     private static final UnsignedWord ID_PRESERVED_FLAG = ID_STATIC_FLAG.unsignedShiftRight(1);
     /* 00010000...0 */
