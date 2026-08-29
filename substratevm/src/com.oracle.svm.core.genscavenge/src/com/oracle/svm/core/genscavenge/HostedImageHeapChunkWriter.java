@@ -33,6 +33,7 @@ import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.c.struct.SizeOf;
 import org.graalvm.word.impl.Word;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.c.struct.OffsetOf;
 import com.oracle.svm.core.genscavenge.remset.RememberedSet;
 import com.oracle.svm.core.image.ImageHeapObject;
@@ -88,11 +89,24 @@ final class HostedImageHeapChunkWriter implements ImageHeapChunkWriter {
         for (int i = 0; i < headerSize; i++) {
             assert buffer.get(chunkOffset + i) == 0 : "Header area must be zeroed out";
         }
-        buffer.putLong(chunkOffset + topOffsetAt, topOffset);
-        buffer.putLong(chunkOffset + endOffsetAt, endOffset);
+        putWord(buffer, chunkOffset + topOffsetAt, topOffset);
+        putWord(buffer, chunkOffset + endOffsetAt, endOffset);
         putObjectReference(buffer, chunkOffset + spaceOffsetAt, 0);
-        buffer.putLong(chunkOffset + offsetToPreviousChunkAt, offsetToPreviousChunk);
-        buffer.putLong(chunkOffset + offsetToNextChunkAt, offsetToNextChunk);
+        putWord(buffer, chunkOffset + offsetToPreviousChunkAt, offsetToPreviousChunk);
+        putWord(buffer, chunkOffset + offsetToNextChunkAt, offsetToNextChunk);
+    }
+
+    private static void putWord(ByteBuffer buffer, int offset, long value) {
+        switch (SubstrateTarget.getWordSize()) {
+            case Integer.BYTES:
+                buffer.putInt(offset, NumUtil.safeToInt(value));
+                break;
+            case Long.BYTES:
+                buffer.putLong(offset, value);
+                break;
+            default:
+                throw VMError.shouldNotReachHere("Unsupported word size");
+        }
     }
 
     @Override
