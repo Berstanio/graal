@@ -279,13 +279,13 @@ public class PosixUtils {
     @BasedOnJDKFile("https://github.com/graalvm/labs-openjdk/blob/jdk-24+13/src/hotspot/os/posix/perfMemory_posix.cpp#L436-L486")
     private static String getUserNameOrDir(int uid, boolean name) {
         /* Determine max. pwBuf size. */
-        long bufSize = Unistd.sysconf(_SC_GETPW_R_SIZE_MAX());
-        if (bufSize == -1) {
-            bufSize = 1024;
+        UnsignedWord bufSize = (UnsignedWord) Unistd.sysconf(_SC_GETPW_R_SIZE_MAX());
+        if (bufSize.equal(Word.signed(-1))) {
+            bufSize = Word.unsigned(1024);
         }
 
         /* Does not use StackValue because it is not safe to use in virtual threads. */
-        UnsignedWord allocSize = Word.unsigned(SizeOf.get(passwdPointer.class) + SizeOf.get(passwd.class) + bufSize);
+        UnsignedWord allocSize = Word.unsigned(SizeOf.get(passwdPointer.class) + SizeOf.get(passwd.class)).add(bufSize);
         Pointer alloc = NullableNativeMemory.malloc(allocSize, NmtCategory.Internal);
         if (alloc.isNull()) {
             return null;
@@ -295,7 +295,7 @@ public class PosixUtils {
             passwdPointer p = (passwdPointer) alloc;
             passwd pwent = (passwd) ((Pointer) p).add(SizeOf.get(passwdPointer.class));
             CCharPointer pwBuf = (CCharPointer) ((Pointer) pwent).add(SizeOf.get(passwd.class));
-            int code = Pwd.getpwuid_r(uid, pwent, pwBuf, Word.unsigned(bufSize), p);
+            int code = Pwd.getpwuid_r(uid, pwent, pwBuf, bufSize, p);
             if (code != 0) {
                 return null;
             }

@@ -34,6 +34,7 @@ import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.heap.PhysicalMemory;
 import com.oracle.svm.shared.singletons.AutomaticallyRegisteredImageSingleton;
 import com.oracle.svm.core.util.TimeUtils;
 import com.oracle.svm.shared.Uninterruptible;
@@ -137,7 +138,7 @@ public class Container {
 
         long currentMs = TimeUtils.currentTimeMillis();
         if (currentMs > physicalMemoryTimeoutMs) {
-            cachedPhysicalMemorySize = ContainerLibrary.physicalMemory();
+            cachedPhysicalMemorySize = PhysicalMemory.saturatedSize(ContainerLibrary.physicalMemory());
             physicalMemoryTimeoutMs = currentMs + CACHE_MS;
         }
         return cachedPhysicalMemorySize;

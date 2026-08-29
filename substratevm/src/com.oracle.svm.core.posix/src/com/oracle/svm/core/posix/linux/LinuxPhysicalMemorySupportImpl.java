@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.graalvm.nativeimage.ImageSingletons;
+import org.graalvm.word.SignedWord;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
@@ -55,12 +56,15 @@ public class LinuxPhysicalMemorySupportImpl extends PlatformPhysicalMemorySuppor
 
     @Override
     public UnsignedWord size() {
-        long numberOfPhysicalMemoryPages = Unistd.sysconf(Unistd._SC_PHYS_PAGES());
-        long sizeOfAPhysicalMemoryPage = Unistd.sysconf(Unistd._SC_PAGESIZE());
-        if (numberOfPhysicalMemoryPages == -1 || sizeOfAPhysicalMemoryPage == -1) {
+        SignedWord numberOfPhysicalMemoryPages = Unistd.sysconf(Unistd._SC_PHYS_PAGES());
+        SignedWord sizeOfAPhysicalMemoryPage = Unistd.sysconf(Unistd._SC_PAGESIZE());
+        SignedWord error = Word.signed(-1);
+        if (numberOfPhysicalMemoryPages.equal(error) || sizeOfAPhysicalMemoryPage.equal(error)) {
             throw VMError.shouldNotReachHere("Physical memory size (number of pages or page size) not available");
         }
-        return Word.unsigned(numberOfPhysicalMemoryPages).multiply(Word.unsigned(sizeOfAPhysicalMemoryPage));
+
+        long bytes = numberOfPhysicalMemoryPages.rawValue() * sizeOfAPhysicalMemoryPage.rawValue();
+        return PhysicalMemory.saturatedSize(bytes);
     }
 
     @Override

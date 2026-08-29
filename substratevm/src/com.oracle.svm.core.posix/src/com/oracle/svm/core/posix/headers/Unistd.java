@@ -89,7 +89,7 @@ public class Unistd {
     public static native int _CS_DARWIN_USER_TEMP_DIR();
 
     @CFunction
-    public static native long sysconf(int name);
+    public static native SignedWord sysconf(int name);
 
     @CFunction
     public static native UnsignedWord confstr(int name, CCharPointer buf, UnsignedWord len);
@@ -126,7 +126,7 @@ public class Unistd {
         public static native SignedWord write(int fd, PointerBase buf, UnsignedWord n);
 
         @CFunction(transition = Transition.NO_TRANSITION)
-        public static native long sysconf(int name);
+        public static native SignedWord sysconf(int name);
 
         @CFunction(transition = Transition.NO_TRANSITION)
         public static native SignedWord lseek(int fd, SignedWord offset, int whence);

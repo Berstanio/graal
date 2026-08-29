@@ -30,6 +30,7 @@ import org.graalvm.word.impl.Word;
 
 import com.oracle.svm.core.IsolateArgumentParser;
 import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.container.Container;
 import com.oracle.svm.core.container.OperatingSystem;
 import com.oracle.svm.core.util.UnsignedUtils;
@@ -41,11 +42,20 @@ import com.oracle.svm.shared.util.VMError;
  */
 public class PhysicalMemory {
     private static final UnsignedWord UNSET_SENTINEL = UnsignedUtils.MAX_VALUE;
+    private static final UnsignedWord MAX_SIZE = UNSET_SENTINEL.subtract(1);
     private static UnsignedWord cachedSize = UNSET_SENTINEL;
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     private static boolean isInitialized() {
         return cachedSize != UNSET_SENTINEL;
+    }
+
+    @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+    public static UnsignedWord saturatedSize(long bytes) {
+        if (SubstrateTarget.getWordBits() < Long.SIZE && bytes > MAX_SIZE.rawValue()) {
+            return MAX_SIZE;
+        }
+        return Word.unsigned(bytes);
     }
 
     /**

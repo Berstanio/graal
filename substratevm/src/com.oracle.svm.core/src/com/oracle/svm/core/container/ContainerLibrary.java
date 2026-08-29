@@ -30,7 +30,6 @@ import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.function.CFunction;
 import org.graalvm.nativeimage.c.function.CFunction.Transition;
 import org.graalvm.nativeimage.c.function.CLibrary;
-import org.graalvm.word.UnsignedWord;
 
 import com.oracle.svm.shared.util.BasedOnJDKFile;
 
@@ -111,7 +110,7 @@ public class ContainerLibrary {
     public static native int initialize(int version);
 
     @CFunction(value = "svm_container_physical_memory", transition = Transition.NO_TRANSITION)
-    public static native UnsignedWord physicalMemory();
+    public static native long physicalMemory();
 
     @CFunction(value = "svm_container_memory_limit_in_bytes", transition = Transition.NO_TRANSITION)
     public static native long getMemoryLimitInBytes();

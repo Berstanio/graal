@@ -87,10 +87,9 @@ public class PosixVirtualMemoryProvider implements VirtualMemoryProvider {
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public static UnsignedWord getPageSize() {
-        Word value = CACHED_PAGE_SIZE.get().read();
+        UnsignedWord value = CACHED_PAGE_SIZE.get().read();
         if (value.equal(Word.zero())) {
-            long queried = Unistd.NoTransitions.sysconf(Unistd._SC_PAGE_SIZE());
-            value = Word.unsigned(queried);
+            value = (UnsignedWord) Unistd.NoTransitions.sysconf(Unistd._SC_PAGE_SIZE());
             CACHED_PAGE_SIZE.get().write(value);
         }
         return value;
