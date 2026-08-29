@@ -275,7 +275,7 @@ public final class BytecodeHandlerStubHelper {
                             "BytecodeInterpreterFetchOpcode method must not return void: %s", nextOpcodeMethod);
             ValueNode[] updatedHandlerArguments = loadCurrentHandlerArguments(handlerConfig, handlerArguments, handlerResult);
             ValueNode nextOpcode = createFetchOpcodeInvoke(kit, nextOpcodeMethod, frameStateBuilder, bci, updatedHandlerArguments);
-            tailCallTarget = kit.append(new BytecodeHandlerDispatchAddressNode(nextOpcode, bytecodeHandlerTableSupplier));
+            tailCallTarget = kit.append(new BytecodeHandlerDispatchAddressNode(nextOpcode, bytecodeHandlerTableSupplier, kit.getWordTypes().getWordKind()));
         }
 
         ValueNode[] normalPathStubArguments = loadCurrentStubArguments(handlerConfig, kit, stubParameters, handlerArguments, handlerResult);

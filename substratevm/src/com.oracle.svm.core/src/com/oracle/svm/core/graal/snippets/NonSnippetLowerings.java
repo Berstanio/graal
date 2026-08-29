@@ -66,6 +66,7 @@ import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.ForeignCallDescriptor;
 import jdk.graal.compiler.core.common.type.Stamp;
+import jdk.graal.compiler.core.common.type.StampFactory;
 import jdk.graal.compiler.core.common.type.StampPair;
 import jdk.graal.compiler.core.common.type.TypeReference;
 import jdk.graal.compiler.debug.GraalError;
@@ -92,6 +93,7 @@ import jdk.graal.compiler.nodes.PiNode;
 import jdk.graal.compiler.nodes.StructuredGraph;
 import jdk.graal.compiler.nodes.ValueNode;
 import jdk.graal.compiler.nodes.calc.AddNode;
+import jdk.graal.compiler.nodes.calc.IntegerConvertNode;
 import jdk.graal.compiler.nodes.calc.IsNullNode;
 import jdk.graal.compiler.nodes.calc.MulNode;
 import jdk.graal.compiler.nodes.calc.ZeroExtendNode;
@@ -456,7 +458,7 @@ public abstract class NonSnippetLowerings {
                              * The "EnterDirectInterpreterStub" is included as AOT method, therefore
                              * its address cannot change.
                              */
-                            ConstantNode stubEntryPointNode = ConstantNode.forLong(CremaSupport.singleton().getEnterDirectInterpreterStubEntryPoint().rawValue(), graph);
+                            ConstantNode stubEntryPointNode = ConstantNode.forIntegerKind(wordKind, CremaSupport.singleton().getEnterDirectInterpreterStubEntryPoint().rawValue(), graph);
                             ValueNode base = graph.addWithoutUnique(new FloatingWordCastNode(tool.getStampProvider().createMethodStamp(), stubEntryPointNode));
 
                             loweredCallTarget = graph.add(new SubstrateIndirectCallTargetNode(
@@ -496,7 +498,8 @@ public abstract class NonSnippetLowerings {
                             assert SubstrateOptions.useRistretto();
                             final long untrackedMethodAdr = rawAdrConstant.rawValue();
                             GraalError.guarantee(untrackedMethodAdr != 0L, "runtime-loaded method has no valid entry point: %s", targetMethod);
-                            final ValueNode base = graph.addWithoutUnique(new FloatingWordCastNode(tool.getStampProvider().createMethodStamp(), ConstantNode.forLong(untrackedMethodAdr, graph)));
+                            final ValueNode base = graph.addWithoutUnique(
+                                            new FloatingWordCastNode(tool.getStampProvider().createMethodStamp(), ConstantNode.forIntegerKind(wordKind, untrackedMethodAdr, graph)));
                             loweredCallTarget = graph.add(new SubstrateIndirectCallTargetNode(
                                             base, parameters.toArray(new ValueNode[parameters.size()]), callTarget.returnStamp(), signature,
                                             targetMethod, callType, invokeKind));
@@ -652,7 +655,7 @@ public abstract class NonSnippetLowerings {
             ValueNode baseOffset;
             assert SubstrateOptions.useClosedTypeWorldHubLayout() == (openWorldDispatchTableOffset == null);
             if (openWorldDispatchTableOffset != null) {
-                baseOffset = openWorldDispatchTableOffset;
+                baseOffset = IntegerConvertNode.convert(openWorldDispatchTableOffset, StampFactory.forKind(wordKind), graph, NodeView.DEFAULT);
             } else {
                 int baseOffsetValue = knownOffsets.getVTableBaseOffset();
                 baseOffset = ConstantNode.forIntegerKind(wordKind, baseOffsetValue, graph);

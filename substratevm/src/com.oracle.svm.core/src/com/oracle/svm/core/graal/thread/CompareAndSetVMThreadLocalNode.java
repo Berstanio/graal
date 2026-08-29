@@ -40,6 +40,7 @@ import jdk.graal.compiler.nodes.spi.Lowerable;
 import jdk.graal.compiler.nodes.spi.LoweringTool;
 import org.graalvm.word.LocationIdentity;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.threadlocal.VMThreadLocalInfo;
 
 import jdk.vm.ci.meta.JavaKind;
@@ -74,7 +75,7 @@ public class CompareAndSetVMThreadLocalNode extends AbstractStateSplit implement
     public void lower(LoweringTool tool) {
         assert threadLocalInfo.offset >= 0;
 
-        ConstantNode offset = ConstantNode.forLong(threadLocalInfo.offset, holder.graph());
+        ConstantNode offset = ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), threadLocalInfo.offset, holder.graph());
         UnsafeCompareAndSwapNode atomic = graph()
                         .add(new UnsafeCompareAndSwapNode(holder, offset, expect, update, threadLocalInfo.storageKind, threadLocalInfo.locationIdentity, MemoryOrderMode.VOLATILE));
         atomic.setStateAfter(stateAfter());

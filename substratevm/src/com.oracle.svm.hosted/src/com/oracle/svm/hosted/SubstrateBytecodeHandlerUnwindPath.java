@@ -29,6 +29,7 @@ import java.util.List;
 
 import com.oracle.graal.pointsto.infrastructure.WrappedJavaMethod;
 import com.oracle.svm.core.ReservedRegisters;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.graal.code.PendingExceptionStateHolder;
 import com.oracle.svm.core.graal.code.PendingExceptionStateSupport;
 import com.oracle.svm.core.graal.nodes.ReadReservedRegisterFloatingNode;
@@ -562,7 +563,7 @@ final class SubstrateBytecodeHandlerUnwindPath {
      * offset.
      */
     private static AddressNode elementAddress(StructuredGraph graph, ValueNode base, long offset) {
-        return graph.unique(new OffsetAddressNode(base, ConstantNode.forLong(offset, graph)));
+        return graph.unique(new OffsetAddressNode(base, ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), offset, graph)));
     }
 
     /**

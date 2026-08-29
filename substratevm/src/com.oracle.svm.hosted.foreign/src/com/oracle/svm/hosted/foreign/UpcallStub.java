@@ -282,7 +282,7 @@ final class LowLevelUpcallStub extends UpcallStub implements CustomCallingConven
             for (AssignedLocation loc : AbiUtils.create().toMemoryAssignment(jep.returnAssignment(), true)) {
                 assert loc.assignsToRegister();
 
-                AddressNode address = new OffsetAddressNode(returnBuffer, ConstantNode.forLong(offset, kit.getGraph()));
+                AddressNode address = new OffsetAddressNode(returnBuffer, ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), offset, kit.getGraph()));
                 ReadNode val = kit.append(new ReadNode(address, LocationIdentity.any(), StampFactory.forKind(loc.registerKind()), BarrierType.NONE, MemoryOrderMode.PLAIN));
                 kit.append(new WriteRegisterNode(loc.register(), val));
 

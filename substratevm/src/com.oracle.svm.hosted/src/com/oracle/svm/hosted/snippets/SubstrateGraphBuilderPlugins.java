@@ -109,6 +109,7 @@ import com.oracle.svm.util.dynamicaccess.JVMCIRuntimeReflection;
 
 import jdk.graal.compiler.core.common.CompressEncoding;
 import jdk.graal.compiler.core.common.NativeImageSupport;
+import jdk.graal.compiler.core.common.NumUtil;
 import jdk.graal.compiler.core.common.type.AbstractObjectStamp;
 import jdk.graal.compiler.core.common.type.IntegerStamp;
 import jdk.graal.compiler.core.common.type.StampFactory;
@@ -1025,7 +1026,8 @@ public class SubstrateGraphBuilderPlugins {
     }
 
     private static IntegerStamp nonZeroWord() {
-        return StampFactory.forUnsignedInteger(64, 1, 0xffffffffffffffffL);
+        int bits = SubstrateTarget.getWordSize() * Byte.SIZE;
+        return StampFactory.forUnsignedInteger(bits, 1, NumUtil.maxValueUnsigned(bits));
     }
 
     private static void registerStackValuePlugins(InvocationPlugins plugins) {

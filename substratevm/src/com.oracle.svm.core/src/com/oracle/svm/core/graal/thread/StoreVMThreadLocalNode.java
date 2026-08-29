@@ -44,6 +44,7 @@ import jdk.graal.compiler.nodes.spi.Lowerable;
 import jdk.graal.compiler.nodes.spi.LoweringTool;
 import org.graalvm.word.LocationIdentity;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.threadlocal.VMThreadLocalInfo;
 
 @NodeInfo(cycles = CYCLES_2, size = SIZE_1)
@@ -87,7 +88,7 @@ public class StoreVMThreadLocalNode extends AbstractStateSplit implements VMThre
     public void lower(LoweringTool tool) {
         assert threadLocalInfo.offset >= 0;
 
-        ConstantNode offset = ConstantNode.forLong(threadLocalInfo.offset, graph());
+        ConstantNode offset = ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), threadLocalInfo.offset, graph());
         AddressNode address = graph().unique(new OffsetAddressNode(holder, offset));
         JavaWriteNode write = graph().add(new JavaWriteNode(threadLocalInfo.storageKind, address, threadLocalInfo.locationIdentity, value, barrierType, true, true, memoryOrder));
         write.setStateAfter(stateAfter());

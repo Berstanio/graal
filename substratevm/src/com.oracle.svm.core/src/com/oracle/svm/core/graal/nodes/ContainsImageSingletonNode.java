@@ -24,6 +24,7 @@
  */
 package com.oracle.svm.core.graal.nodes;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.config.ObjectLayout;
 import com.oracle.svm.core.imagelayer.AccessImageSingletonFactory;
 import com.oracle.svm.core.imagelayer.AccessImageSingletonFactory.ContainsImageSingletonData;
@@ -94,7 +95,7 @@ public class ContainsImageSingletonNode extends FixedWithNextNode implements Low
          * Read from the appropriate offset of the singleton table.
          */
 
-        AddressNode address = graph.unique(new OffsetAddressNode(baseAddress, ConstantNode.forIntegerKind(JavaKind.Long, singletonAccessInfo.offset(), graph)));
+        AddressNode address = graph.unique(new OffsetAddressNode(baseAddress, ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), singletonAccessInfo.offset(), graph)));
 
         JavaKind referenceKind = ObjectLayout.singleton().getReferenceSize() == Integer.BYTES ? JavaKind.Int : JavaKind.Long;
         ReadNode tableRead = graph.add(new ReadNode(address, NamedLocationIdentity.FINAL_LOCATION, StampFactory.forKind(referenceKind), BarrierType.NONE, MemoryOrderMode.PLAIN));

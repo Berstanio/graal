@@ -47,6 +47,7 @@ import jdk.graal.compiler.nodes.spi.Lowerable;
 import jdk.graal.compiler.nodes.spi.LoweringTool;
 import org.graalvm.word.LocationIdentity;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.threadlocal.VMThreadLocalInfo;
 
 import jdk.vm.ci.meta.MetaAccessProvider;
@@ -97,7 +98,7 @@ public class LoadVMThreadLocalNode extends FixedWithNextNode implements VMThread
     public void lower(LoweringTool tool) {
         assert threadLocalInfo.offset >= 0;
 
-        ConstantNode offset = ConstantNode.forLong(threadLocalInfo.offset, holder.graph());
+        ConstantNode offset = ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), threadLocalInfo.offset, holder.graph());
         AddressNode address = graph().unique(new OffsetAddressNode(holder, offset));
 
         JavaReadNode read = graph().add(new JavaReadNode(stamp, threadLocalInfo.storageKind, address, threadLocalInfo.locationIdentity, barrierType, memoryOrder, true));

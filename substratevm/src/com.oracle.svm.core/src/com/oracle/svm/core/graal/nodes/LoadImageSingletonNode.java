@@ -26,6 +26,7 @@ package com.oracle.svm.core.graal.nodes;
 
 import org.graalvm.word.LocationIdentity;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.config.ObjectLayout;
 import com.oracle.svm.core.heap.ReferenceAccess;
 import com.oracle.svm.core.imagelayer.AccessImageSingletonFactory;
@@ -119,7 +120,7 @@ public class LoadImageSingletonNode extends FixedWithNextNode implements Lowerab
          * Read from the appropriate offset of the singleton table.
          */
 
-        AddressNode address = graph.unique(new OffsetAddressNode(baseAddress, ConstantNode.forIntegerKind(JavaKind.Long, singletonAccessInfo.offset(), graph)));
+        AddressNode address = graph.unique(new OffsetAddressNode(baseAddress, ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), singletonAccessInfo.offset(), graph)));
         if (singletonInfo.isApplicationLayerOnly()) {
             addMissingSingletonCheck(graph, tool, address);
         }

@@ -63,26 +63,29 @@ public final class BytecodeHandlerDispatchAddressNode extends FixedWithNextNode 
 
     private final Supplier<Object> bytecodeHandlerTableSupplier;
 
-    public BytecodeHandlerDispatchAddressNode(ValueNode opcode, Supplier<Object> bytecodeHandlerTableSupplier) {
-        super(TYPE, StampFactory.forKind(JavaKind.Long));
+    private final JavaKind wordKind;
+
+    public BytecodeHandlerDispatchAddressNode(ValueNode opcode, Supplier<Object> bytecodeHandlerTableSupplier, JavaKind wordKind) {
+        super(TYPE, StampFactory.forKind(wordKind));
         this.opcode = opcode;
         this.bytecodeHandlerTableSupplier = bytecodeHandlerTableSupplier;
+        this.wordKind = wordKind;
     }
 
     @Override
     public void lower(LoweringTool tool) {
-        // Treat bytecodeHandlerTable as a long[] and return bytecodeHandlerTable[opcode]
+        // Return bytecodeHandlerTable[opcode], an array of machine words
         StructuredGraph graph = graph();
         JavaConstant bytecodeHandlerTable = tool.getSnippetReflection().forObject(bytecodeHandlerTableSupplier.get());
         ConstantNode base = ConstantNode.forConstant(bytecodeHandlerTable, tool.getMetaAccess(), graph);
-        ConstantNode baseOffset = ConstantNode.forLong(tool.getMetaAccess().getArrayBaseOffset(JavaKind.Long), graph);
-        ConstantNode indexShift = ConstantNode.forInt(CodeUtil.log2(tool.getMetaAccess().getArrayIndexScale(JavaKind.Long)), graph);
-        ValueNode extendedOpcode = graph.addOrUnique(ZeroExtendNode.create(opcode, 64, NodeView.DEFAULT));
+        ConstantNode baseOffset = ConstantNode.forIntegerKind(wordKind, tool.getMetaAccess().getArrayBaseOffset(wordKind), graph);
+        ConstantNode indexShift = ConstantNode.forInt(CodeUtil.log2(tool.getMetaAccess().getArrayIndexScale(wordKind)), graph);
+        ValueNode extendedOpcode = graph.addOrUnique(ZeroExtendNode.create(opcode, wordKind.getBitCount(), NodeView.DEFAULT));
         ValueNode offset = graph.addOrUnique(LeftShiftNode.create(extendedOpcode, indexShift, NodeView.DEFAULT));
         ValueNode offsetWithArrayBase = graph.addOrUnique(AddNode.create(offset, baseOffset, NodeView.DEFAULT));
         OffsetAddressNode address = graph.addOrUnique(new OffsetAddressNode(base, offsetWithArrayBase));
         ValueNode read = FloatingReadNode.createRead(graph, address, NamedLocationIdentity.FINAL_LOCATION,
-                        StampFactory.forKind(JavaKind.Long), null, BarrierType.NONE, this);
+                        StampFactory.forKind(wordKind), null, BarrierType.NONE, this);
 
         replaceAtUsages(read);
         GraphUtil.unlinkFixedNode(this);

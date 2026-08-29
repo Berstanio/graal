@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.config.ObjectLayout;
 import org.graalvm.nativeimage.ImageSingletons;
 
@@ -125,7 +126,7 @@ public class ImageHeapRelocatableConstantFeature extends ImageHeapRelocatableCon
         long arrayOffset = ObjectLayout.singleton().getArrayElementOffset(JavaKind.Object, getAssignedIndex(constant));
         var array = getImageHeapRelocatableConstantsArray();
         MetaAccessProvider metaAccess = tool.getMetaAccess();
-        var address = new OffsetAddressNode(ConstantNode.forConstant(array, metaAccess, graph), ConstantNode.forLong(arrayOffset));
+        var address = new OffsetAddressNode(ConstantNode.forConstant(array, metaAccess, graph), ConstantNode.forIntegerKind(SubstrateTarget.getWordKind(), arrayOffset));
 
         var compressEncoding = ReferenceAccess.singleton().getCompressEncoding();
         var compressedStamp = SubstrateNarrowOopStamp.compressed((AbstractObjectStamp) StampFactory.forConstant(constant, metaAccess), compressEncoding);
