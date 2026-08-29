@@ -51,6 +51,7 @@ import com.oracle.svm.core.IsolateArguments;
 import com.oracle.svm.core.NeverInline;
 import com.oracle.svm.core.SubstrateGCOptions;
 import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.VMInspectionOptions;
 import com.oracle.svm.guest.staging.c.function.CEntryPointErrors;
 import com.oracle.svm.core.graal.snippets.CEntryPointSnippets;
@@ -111,7 +112,12 @@ import jdk.graal.compiler.api.replacements.Fold;
  */
 @SingletonTraits(access = AllAccess.class, layeredCallbacks = SingleLayer.class, layeredInstallationKind = InitialLayerOnly.class)
 public class AddressRangeCommittedMemoryProvider extends ChunkBasedCommittedMemoryProvider {
-    private static final long MIN_RESERVED_ADDRESS_SPACE_SIZE = 32L * 1024 * 1024 * 1024;
+
+    // 32GiB
+    private static final long MIN_RESERVED_ADDRESS_SPACE_SIZE_64 = 32L * 1024 * 1024 * 1024;
+
+    // 256MiB
+    private static final long MIN_RESERVED_ADDRESS_SPACE_SIZE_32 = 256L * 1024 * 1024;
 
     protected static final int NO_ERROR = 0;
     protected static final int OUT_OF_ADDRESS_SPACE = 1;
@@ -175,12 +181,13 @@ public class AddressRangeCommittedMemoryProvider extends ChunkBasedCommittedMemo
         UnsignedWord reservedSize = Word.unsigned(IsolateArgumentAccess.readLong(arguments, reservedAddressSpaceSizeOptionIndex));
         if (reservedSize.equal(0)) {
             /*
-             * Reserve a 32 GB address space, except if a larger heap size was specified, or if the
-             * maximum address space size is less than that.
+             * Reserve the target's default address space size, except if a larger heap size was
+             * specified, or if the maximum address space size is less than that.
              */
             int maxHeapSizeOptionIndex = IsolateArgumentParser.getOptionIndex(SubstrateGCOptions.MaxHeapSize);
             UnsignedWord maxHeapSize = Word.unsigned(IsolateArgumentAccess.readLong(arguments, maxHeapSizeOptionIndex));
-            reservedSize = UnsignedUtils.max(maxHeapSize, Word.unsigned(MIN_RESERVED_ADDRESS_SPACE_SIZE));
+            UnsignedWord minReservedAddressSpace = Word.unsigned(SubstrateTarget.getWordSize() == Long.BYTES ? MIN_RESERVED_ADDRESS_SPACE_SIZE_64 : MIN_RESERVED_ADDRESS_SPACE_SIZE_32);
+            reservedSize = UnsignedUtils.max(maxHeapSize, minReservedAddressSpace);
         }
         reservedSize = UnsignedUtils.min(reservedSize, ReferenceAccess.singleton().getMaxAddressSpaceSize());
 
