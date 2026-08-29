@@ -29,6 +29,7 @@ import static jdk.graal.compiler.nodeinfo.NodeSize.SIZE_1;
 
 import org.graalvm.word.LocationIdentity;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.type.PrimitiveStamp;
 import jdk.graal.compiler.core.common.type.Stamp;
@@ -79,7 +80,12 @@ public class RawLoadNode extends UnsafeAccessNode implements Lowerable, Virtuali
     }
 
     public RawLoadNode(ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, boolean forceLocation, MemoryOrderMode memoryOrder) {
-        super(TYPE, StampFactory.forKind(accessKind.getStackKind()), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder);
+        this(object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, AlignmentGuarantee.NONE);
+    }
+
+    public RawLoadNode(ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, boolean forceLocation, MemoryOrderMode memoryOrder,
+                    AlignmentGuarantee alignmentGuarantee) {
+        super(TYPE, StampFactory.forKind(accessKind.getStackKind()), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, alignmentGuarantee);
     }
 
     /**
@@ -118,7 +124,12 @@ public class RawLoadNode extends UnsafeAccessNode implements Lowerable, Virtuali
 
     protected RawLoadNode(NodeClass<? extends RawLoadNode> c, ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, boolean forceLocation,
                     MemoryOrderMode memoryOrder) {
-        super(c, computeStampForArrayAccess(object, accessKind, null), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder);
+        this(c, object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, AlignmentGuarantee.NONE);
+    }
+
+    protected RawLoadNode(NodeClass<? extends RawLoadNode> c, ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, boolean forceLocation,
+                    MemoryOrderMode memoryOrder, AlignmentGuarantee alignmentGuarantee) {
+        super(c, computeStampForArrayAccess(object, accessKind, null), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, alignmentGuarantee);
     }
 
     @Override
@@ -225,7 +236,7 @@ public class RawLoadNode extends UnsafeAccessNode implements Lowerable, Virtuali
 
     @Override
     protected ValueNode cloneAsArrayAccess(ValueNode location, LocationIdentity identity, MemoryOrderMode memoryOrder) {
-        return new RawLoadNode(object(), location, accessKind(), identity, memoryOrder);
+        return new RawLoadNode(object(), location, accessKind(), identity, false, memoryOrder, getAlignmentGuarantee());
     }
 
     @NodeIntrinsic

@@ -29,6 +29,7 @@ import static jdk.graal.compiler.nodeinfo.NodeSize.SIZE_1;
 
 import org.graalvm.word.LocationIdentity;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.spi.MetaAccessExtensionProvider;
 import jdk.graal.compiler.core.common.type.Stamp;
@@ -39,6 +40,7 @@ import jdk.graal.compiler.nodes.FixedWithNextNode;
 import jdk.graal.compiler.nodes.GraphState.StageFlag;
 import jdk.graal.compiler.nodes.NamedLocationIdentity;
 import jdk.graal.compiler.nodes.ValueNode;
+import jdk.graal.compiler.nodes.memory.AlignedMemoryAccess;
 import jdk.graal.compiler.nodes.memory.MemoryAccess;
 import jdk.graal.compiler.nodes.memory.OrderedMemoryAccess;
 import jdk.graal.compiler.nodes.spi.Canonicalizable;
@@ -51,7 +53,7 @@ import jdk.vm.ci.meta.ResolvedJavaField;
 import jdk.vm.ci.meta.ResolvedJavaType;
 
 @NodeInfo(cycles = CYCLES_2, size = SIZE_1)
-public abstract class UnsafeAccessNode extends FixedWithNextNode implements Canonicalizable, OrderedMemoryAccess, MemoryAccess, TrackedUnsafeAccess {
+public abstract class UnsafeAccessNode extends FixedWithNextNode implements Canonicalizable, OrderedMemoryAccess, AlignedMemoryAccess, MemoryAccess, TrackedUnsafeAccess {
 
     public static final NodeClass<UnsafeAccessNode> TYPE = NodeClass.create(UnsafeAccessNode.class);
     @Input ValueNode object;
@@ -60,12 +62,19 @@ public abstract class UnsafeAccessNode extends FixedWithNextNode implements Cano
     protected final LocationIdentity locationIdentity;
     /** Whether the location identity of this node must not change. */
     protected final boolean forceLocation;
+    protected final AlignmentGuarantee alignmentGuarantee;
     private final MemoryOrderMode memoryOrder;
 
     protected UnsafeAccessNode(NodeClass<? extends UnsafeAccessNode> c, Stamp stamp, ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity,
                     boolean forceLocation, MemoryOrderMode memoryOrder) {
+        this(c, stamp, object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, AlignmentGuarantee.NONE);
+    }
+
+    protected UnsafeAccessNode(NodeClass<? extends UnsafeAccessNode> c, Stamp stamp, ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity,
+                    boolean forceLocation, MemoryOrderMode memoryOrder, AlignmentGuarantee alignmentGuarantee) {
         super(c, stamp);
         this.forceLocation = forceLocation;
+        this.alignmentGuarantee = alignmentGuarantee;
         assert accessKind != null;
         assert locationIdentity != null;
         this.object = object;
@@ -82,6 +91,11 @@ public abstract class UnsafeAccessNode extends FixedWithNextNode implements Cano
 
     public boolean isLocationForced() {
         return forceLocation;
+    }
+
+    @Override
+    public AlignmentGuarantee getAlignmentGuarantee() {
+        return alignmentGuarantee;
     }
 
     public boolean isCanonicalizable() {

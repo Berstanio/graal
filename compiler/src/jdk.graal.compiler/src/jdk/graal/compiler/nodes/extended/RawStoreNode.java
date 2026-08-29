@@ -30,6 +30,7 @@ import static jdk.graal.compiler.nodeinfo.NodeSize.SIZE_1;
 
 import org.graalvm.word.LocationIdentity;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.type.StampFactory;
 import jdk.graal.compiler.debug.Assertions;
@@ -80,12 +81,18 @@ public class RawStoreNode extends UnsafeAccessNode implements StateSplit, Lowera
     public RawStoreNode(ValueNode object, ValueNode offset, ValueNode value, JavaKind accessKind, LocationIdentity locationIdentity, boolean needsBarrier, MemoryOrderMode memoryOrder,
                     FrameState stateAfter,
                     boolean forceLocation) {
-        this(TYPE, object, offset, value, accessKind, locationIdentity, needsBarrier, memoryOrder, stateAfter, forceLocation);
+        this(TYPE, object, offset, value, accessKind, locationIdentity, needsBarrier, memoryOrder, stateAfter, forceLocation, AlignmentGuarantee.NONE);
+    }
+
+    public RawStoreNode(ValueNode object, ValueNode offset, ValueNode value, JavaKind accessKind, LocationIdentity locationIdentity, boolean needsBarrier, MemoryOrderMode memoryOrder,
+                    FrameState stateAfter,
+                    boolean forceLocation, AlignmentGuarantee alignmentGuarantee) {
+        this(TYPE, object, offset, value, accessKind, locationIdentity, needsBarrier, memoryOrder, stateAfter, forceLocation, alignmentGuarantee);
     }
 
     protected RawStoreNode(NodeClass<? extends RawStoreNode> c, ValueNode object, ValueNode offset, ValueNode value, JavaKind accessKind, LocationIdentity locationIdentity, boolean needsBarrier,
-                    MemoryOrderMode memoryOrder, FrameState stateAfter, boolean forceLocation) {
-        super(c, StampFactory.forVoid(), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder);
+                    MemoryOrderMode memoryOrder, FrameState stateAfter, boolean forceLocation, AlignmentGuarantee alignmentGuarantee) {
+        super(c, StampFactory.forVoid(), object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, alignmentGuarantee);
         this.value = value;
         this.needsBarrier = needsBarrier;
         this.stateAfter = stateAfter;
@@ -157,7 +164,7 @@ public class RawStoreNode extends UnsafeAccessNode implements StateSplit, Lowera
 
     @Override
     protected ValueNode cloneAsArrayAccess(ValueNode location, LocationIdentity identity, MemoryOrderMode memOrder) {
-        return new RawStoreNode(object(), location, value, accessKind(), identity, needsBarrier, memOrder, stateAfter(), isLocationForced());
+        return new RawStoreNode(object(), location, value, accessKind(), identity, needsBarrier, memOrder, stateAfter(), isLocationForced(), getAlignmentGuarantee());
     }
 
 }

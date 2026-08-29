@@ -26,6 +26,7 @@ package jdk.graal.compiler.nodes.extended;
 
 import static jdk.graal.compiler.nodeinfo.InputType.Guard;
 
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.graph.NodeClass;
 import jdk.graal.compiler.nodeinfo.NodeInfo;
@@ -45,8 +46,9 @@ public class GuardedUnsafeLoadNode extends RawLoadNode implements GuardedNode {
         this.guard = (GuardingNode) guard;
     }
 
-    public GuardedUnsafeLoadNode(ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, ValueNode guard, boolean forceLocation, MemoryOrderMode memoryOrder) {
-        super(TYPE, object, offset, accessKind, locationIdentity, forceLocation, memoryOrder);
+    public GuardedUnsafeLoadNode(ValueNode object, ValueNode offset, JavaKind accessKind, LocationIdentity locationIdentity, ValueNode guard, boolean forceLocation, MemoryOrderMode memoryOrder,
+                    AlignmentGuarantee alignmentGuarantee) {
+        super(TYPE, object, offset, accessKind, locationIdentity, forceLocation, memoryOrder, alignmentGuarantee);
         this.guard = (GuardingNode) guard;
     }
 
@@ -70,7 +72,7 @@ public class GuardedUnsafeLoadNode extends RawLoadNode implements GuardedNode {
         // Only improve the location identity; do not attempt to canonicalize to a RawLoadNode
         // since doing so would lose the guard and prevent floating the read after lowering.
         assert !getLocationIdentity().equals(identity);
-        return new GuardedUnsafeLoadNode(object(), offset(), accessKind(), identity, (ValueNode) getGuard(), isLocationForced(), memOrder);
+        return new GuardedUnsafeLoadNode(object(), offset(), accessKind(), identity, (ValueNode) getGuard(), isLocationForced(), memOrder, getAlignmentGuarantee());
     }
 
     @NodeIntrinsic

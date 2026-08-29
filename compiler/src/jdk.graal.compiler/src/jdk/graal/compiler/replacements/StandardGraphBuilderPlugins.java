@@ -57,6 +57,7 @@ import jdk.graal.compiler.api.replacements.SnippetReflectionProvider;
 import jdk.graal.compiler.core.common.calc.Condition;
 import jdk.graal.compiler.core.common.calc.Condition.CanonicalizedCondition;
 import jdk.graal.compiler.core.common.calc.UnsignedMath;
+import jdk.graal.compiler.core.common.memory.AlignmentGuarantee;
 import jdk.graal.compiler.core.common.memory.BarrierType;
 import jdk.graal.compiler.core.common.memory.MemoryOrderMode;
 import jdk.graal.compiler.core.common.type.AbstractObjectStamp;
@@ -841,8 +842,8 @@ public class StandardGraphBuilderPlugins {
     private static void registerUnsafeUnalignedPlugins(Registration r, boolean explicitUnsafeNullChecks) {
         for (JavaKind kind : new JavaKind[]{JavaKind.Char, JavaKind.Short, JavaKind.Int, JavaKind.Long}) {
             Class<?> javaClass = kind.toJavaClass();
-            r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, "get" + kind.name() + "Unaligned", Receiver.class, Object.class, long.class));
-            r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, "put" + kind.name() + "Unaligned", Receiver.class, Object.class, long.class, javaClass));
+            r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, "get" + kind.name() + "Unaligned", Receiver.class, Object.class, long.class));
+            r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, "put" + kind.name() + "Unaligned", Receiver.class, Object.class, long.class, javaClass));
         }
     }
 
@@ -881,31 +882,31 @@ public class StandardGraphBuilderPlugins {
                 String getName = "get" + kindName;
                 String putName = "put" + kindName;
                 // Object-based accesses
-                r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, getName, Receiver.class, Object.class, long.class));
-                r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, putName, Receiver.class, Object.class, long.class, javaClass));
+                r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL, getName, Receiver.class, Object.class, long.class));
+                r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL, putName, Receiver.class, Object.class, long.class, javaClass));
                 // Volatile object-based accesses
-                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.VOLATILE, explicitUnsafeNullChecks, getName + "Volatile", Receiver.class, Object.class, long.class));
-                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.VOLATILE, explicitUnsafeNullChecks, putName + "Volatile", Receiver.class, Object.class, long.class, javaClass));
+                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.VOLATILE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL, getName + "Volatile", Receiver.class, Object.class, long.class));
+                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.VOLATILE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL, putName + "Volatile", Receiver.class, Object.class, long.class, javaClass));
                 // Ordered object-based accesses
-                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.RELEASE, explicitUnsafeNullChecks,
+                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.RELEASE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL,
                                 "put" + kindName + "Release", Receiver.class, Object.class, long.class, javaClass));
-                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.ACQUIRE, explicitUnsafeNullChecks,
+                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.ACQUIRE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL,
                                 "get" + kindName + "Acquire", Receiver.class, Object.class, long.class));
-                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.OPAQUE, explicitUnsafeNullChecks,
+                r.register(new UnsafePutPlugin(kind, MemoryOrderMode.OPAQUE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL,
                                 "put" + kindName + "Opaque", Receiver.class, Object.class, long.class, javaClass));
-                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.OPAQUE, explicitUnsafeNullChecks,
+                r.register(new UnsafeGetPlugin(kind, MemoryOrderMode.OPAQUE, explicitUnsafeNullChecks, AlignmentGuarantee.NATURAL,
                                 "get" + kindName + "Opaque", Receiver.class, Object.class, long.class));
                 if (kind != JavaKind.Boolean && kind != JavaKind.Object) {
                     // Raw accesses to memory addresses
-                    r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, getName, Receiver.class, long.class));
-                    r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, putName, Receiver.class, long.class, kind.toJavaClass()));
+                    r.register(new UnsafeGetPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, getName, Receiver.class, long.class));
+                    r.register(new UnsafePutPlugin(kind, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, putName, Receiver.class, long.class, kind.toJavaClass()));
                 }
             }
         }
 
         // Accesses to native memory addresses.
-        r.register(new UnsafeGetPlugin(JavaKind.Long, explicitUnsafeNullChecks, "getAddress", Receiver.class, long.class));
-        r.register(new UnsafePutPlugin(JavaKind.Long, explicitUnsafeNullChecks, "putAddress", Receiver.class, long.class, long.class));
+        r.register(new UnsafeGetPlugin(JavaKind.Long, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, "getAddress", Receiver.class, long.class));
+        r.register(new UnsafePutPlugin(JavaKind.Long, explicitUnsafeNullChecks, AlignmentGuarantee.NONE, "putAddress", Receiver.class, long.class, long.class));
 
         r.register(new UnsafeFencePlugin(MembarNode.FenceKind.LOAD_ACQUIRE, "loadFence"));
         r.register(new UnsafeFencePlugin(MembarNode.FenceKind.STORE_RELEASE, "storeFence"));
@@ -1688,14 +1689,16 @@ public class StandardGraphBuilderPlugins {
 
     public static class UnsafeGetPlugin extends UnsafeAccessPlugin {
         private final MemoryOrderMode memoryOrder;
+        private final AlignmentGuarantee alignmentGuarantee;
 
-        public UnsafeGetPlugin(JavaKind returnKind, boolean explicitUnsafeNullChecks, String name, Type... argumentTypes) {
-            this(returnKind, MemoryOrderMode.PLAIN, explicitUnsafeNullChecks, name, argumentTypes);
+        public UnsafeGetPlugin(JavaKind returnKind, boolean explicitUnsafeNullChecks, AlignmentGuarantee alignmentGuarantee, String name, Type... argumentTypes) {
+            this(returnKind, MemoryOrderMode.PLAIN, explicitUnsafeNullChecks, alignmentGuarantee, name, argumentTypes);
         }
 
-        public UnsafeGetPlugin(JavaKind kind, MemoryOrderMode memoryOrder, boolean explicitUnsafeNullChecks, String name, Type... argumentTypes) {
+        public UnsafeGetPlugin(JavaKind kind, MemoryOrderMode memoryOrder, boolean explicitUnsafeNullChecks, AlignmentGuarantee alignmentGuarantee, String name, Type... argumentTypes) {
             super(kind, kind, explicitUnsafeNullChecks, name, argumentTypes);
             this.memoryOrder = memoryOrder;
+            this.alignmentGuarantee = alignmentGuarantee;
         }
 
         @Override
@@ -1718,7 +1721,7 @@ public class StandardGraphBuilderPlugins {
             // Emits a null-check for the otherwise unused receiver
             unsafe.get(true);
             // Note that non-ordered raw accesses can be turned into floatable field accesses.
-            UnsafeNodeConstructor unsafeNodeConstructor = (obj, loc) -> new RawLoadNode(obj, offset, unsafeAccessKind, loc, memoryOrder);
+            UnsafeNodeConstructor unsafeNodeConstructor = (obj, loc) -> new RawLoadNode(obj, offset, unsafeAccessKind, loc, false, memoryOrder, alignmentGuarantee);
             createUnsafeAccess(object, b, unsafeNodeConstructor, RawLoadNode.class);
             return true;
         }
@@ -1726,14 +1729,16 @@ public class StandardGraphBuilderPlugins {
 
     public static class UnsafePutPlugin extends UnsafeAccessPlugin {
         private final MemoryOrderMode memoryOrder;
+        private final AlignmentGuarantee alignmentGuarantee;
 
-        public UnsafePutPlugin(JavaKind kind, boolean explicitUnsafeNullChecks, String name, Type... argumentTypes) {
-            this(kind, MemoryOrderMode.PLAIN, explicitUnsafeNullChecks, name, argumentTypes);
+        public UnsafePutPlugin(JavaKind kind, boolean explicitUnsafeNullChecks, AlignmentGuarantee alignmentGuarantee, String name, Type... argumentTypes) {
+            this(kind, MemoryOrderMode.PLAIN, explicitUnsafeNullChecks, alignmentGuarantee, name, argumentTypes);
         }
 
-        private UnsafePutPlugin(JavaKind kind, MemoryOrderMode memoryOrder, boolean explicitUnsafeNullChecks, String name, Type... argumentTypes) {
+        private UnsafePutPlugin(JavaKind kind, MemoryOrderMode memoryOrder, boolean explicitUnsafeNullChecks, AlignmentGuarantee alignmentGuarantee, String name, Type... argumentTypes) {
             super(kind, JavaKind.Void, explicitUnsafeNullChecks, name, argumentTypes);
             this.memoryOrder = memoryOrder;
+            this.alignmentGuarantee = alignmentGuarantee;
         }
 
         @Override
@@ -1758,7 +1763,7 @@ public class StandardGraphBuilderPlugins {
             // Emits a null-check for the otherwise unused receiver
             unsafe.get(true);
             ValueNode maskedValue = b.maskSubWordValue(value, unsafeAccessKind);
-            createUnsafeAccess(object, b, (obj, loc) -> new RawStoreNode(obj, offset, maskedValue, unsafeAccessKind, loc, true, memoryOrder), RawStoreNode.class);
+            createUnsafeAccess(object, b, (obj, loc) -> new RawStoreNode(obj, offset, maskedValue, unsafeAccessKind, loc, true, memoryOrder, null, false, alignmentGuarantee), RawStoreNode.class);
             return true;
         }
     }

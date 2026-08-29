@@ -804,7 +804,8 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         Stamp loadStamp = loadStamp(load.stamp(NodeView.DEFAULT), readKind, compressible);
         AddressNode address = createUnsafeAddress(graph, load.object(), load.offset());
         LocationIdentity location = load.getLocationIdentity();
-        ReadNode memoryRead = graph.add(new ReadNode(address, location, loadStamp, barrierSet.readBarrierType(location, address, loadStamp), load.getMemoryOrder()));
+        ReadNode memoryRead = graph.add(
+                        new ReadNode(address, location, loadStamp, barrierSet.readBarrierType(location, address, loadStamp), load.getMemoryOrder(), load.getAlignmentGuarantee()));
         if (guard == null) {
             // An unsafe read must not float otherwise it may float above
             // a test guaranteeing the read is safe.
@@ -847,7 +848,8 @@ public abstract class DefaultJavaLoweringProvider implements LoweringProvider, V
         JavaKind valueKind = store.accessKind();
         ValueNode value = implicitStoreConvert(graph, valueKind, store.value(), compressible);
         AddressNode address = createUnsafeAddress(graph, store.object(), store.offset());
-        WriteNode write = graph.add(new WriteNode(address, store.getLocationIdentity(), value, barrierSet.writeBarrierType(store), store.getMemoryOrder()));
+        WriteNode write = graph.add(
+                        new WriteNode(address, store.getLocationIdentity(), value, barrierSet.writeBarrierType(store), store.getMemoryOrder(), store.getAlignmentGuarantee()));
         write.setStateAfter(store.stateAfter());
         graph.replaceFixedWithFixed(store, write);
     }
