@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.c.struct.SizeOf;
 import org.graalvm.nativeimage.impl.InternalPlatform;
 import org.graalvm.word.LocationIdentity;
 
@@ -43,6 +44,7 @@ import com.oracle.svm.core.graal.nodes.VaListInitializationNode;
 import com.oracle.svm.core.graal.nodes.VaListNextArgNode;
 import com.oracle.svm.core.jni.CallVariant;
 import com.oracle.svm.core.jni.JNIJavaCallVariantWrapperHolder;
+import com.oracle.svm.core.jni.headers.JNIValue;
 import com.oracle.svm.core.nodes.SubstrateIndirectCallTargetNode;
 import com.oracle.svm.shared.util.VMError;
 import com.oracle.svm.hosted.code.EntryPointCallStubMethod;
@@ -223,6 +225,8 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
             } else {
                 array = kit.loadLocal(slotIndex, wordKind);
             }
+            // Array is a jvalue[], and jvalue are 8byte on all systems
+            int stride = (callVariant == CallVariant.ARRAY) ? SizeOf.get(JNIValue.class) : wordKind.getByteCount();
             for (int i = firstParamIndex; i < count; i++) {
                 JavaKind kind = invokeSignature.getParameterKind(i);
                 assert kind == kind.getStackKind() : "sub-int conversions and bit masking must happen in JNIJavaCallWrapperMethod";
@@ -239,7 +243,7 @@ public class JNIJavaCallVariantWrapperMethod extends EntryPointCallStubMethod {
                  * char) and mask the extra bits on little-endian architectures so that we can reuse
                  * a wrapper for more different signatures.
                  */
-                int offset = (i - firstParamIndex) * wordKind.getByteCount();
+                int offset = (i - firstParamIndex) * stride;
                 ConstantNode offsetConstant = kit.createConstant(JavaConstant.forIntegerKind(wordKind, offset), wordKind);
                 OffsetAddressNode address = kit.unique(new OffsetAddressNode(array, offsetConstant));
                 Stamp readStamp = StampFactory.forKind(readKind);
