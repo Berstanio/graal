@@ -685,7 +685,7 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool, SubstrateNodeLIRBuil
             LLVMValueRef threadLocalArea = gen.buildInlineGetRegister(ReservedRegisters.singleton().getThreadRegister().name);
             LLVMValueRef statusIndex = builder.constantInt(KnownOffsets.singleton().getVMThreadStatusOffset());
             LLVMValueRef statusAddress = builder.buildGEP(builder.buildIntToPtr(threadLocalArea, builder.rawPointerType()), statusIndex);
-            builder.buildVolatileStore(newThreadStatus, builder.buildBitcast(statusAddress, builder.pointerType(builder.intType())), Integer.BYTES);
+            builder.buildReleaseStore(newThreadStatus, builder.buildBitcast(statusAddress, builder.pointerType(builder.intType())), Integer.BYTES);
             return emitCallInstruction(invoke, false, callee, patchpointId, args);
         } else {
             LLVMValueRef wrapper = gen.createJNIWrapper(callee, true, args.length, KnownOffsets.singleton().getJavaFrameAnchorLastIPOffset(), KnownOffsets.singleton().getVMThreadStatusOffset());

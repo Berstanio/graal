@@ -1166,7 +1166,11 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         return address instanceof LLVMValueWrapper wrapper && LLVMIRBuilder.isObjectType(wrapper.getType());
     }
 
-    private static int provenAlignment(int size, MemoryAccessInfo accessInfo, boolean objectAddress) {
+    private static int provenAlignment(int size, MemoryAccessInfo accessInfo, boolean objectAddress, MemoryOrderMode memoryOrder) {
+        // Anything not-plain is atomic and therefore needs to be aligned
+        if (memoryOrder != MemoryOrderMode.PLAIN) {
+            return size;
+        }
         if (!objectAddress) {
             /* Word, Pointer, @CStruct, off-heap: there is no layout behind this address. */
             return 1;
@@ -1200,6 +1204,16 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
          * a byte[] under ANY_LOCATION.
          */
         return 1;
+    }
+
+    private static boolean isAtomic(MemoryOrderMode memoryOrder, int accessSize) {
+        if (memoryOrder == MemoryOrderMode.PLAIN || accessSize <= SubstrateTarget.getWordSize()) {
+            return false;
+        }
+        if (accessSize > Long.BYTES) {
+            throw unimplemented("atomic " + accessSize + "-byte access on a " + SubstrateTarget.getWordSize() + "-byte-word target: no atomic form exists");
+        }
+        return true;
     }
 
     private LLVMTypeRef getMemoryAccessType(ValueKind<?> kind) {
@@ -1428,7 +1442,7 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
                 /* A safepoint may walk the frame anchor as soon as the thread status changes. */
                 LLVMValueRef statusAddress = tempBuilder.buildGEP(tempBuilder.buildIntToPtr(savedThread, tempBuilder.rawPointerType()), tempBuilder.constantInt(threadStatusOffset));
                 LLVMValueRef newThreadStatus = LLVMIRBuilder.getParam(transitionWrapper, 2);
-                tempBuilder.buildVolatileStore(newThreadStatus, tempBuilder.buildBitcast(statusAddress, tempBuilder.pointerType(tempBuilder.intType())), Integer.BYTES);
+                tempBuilder.buildReleaseStore(newThreadStatus, tempBuilder.buildBitcast(statusAddress, tempBuilder.pointerType(tempBuilder.intType())), Integer.BYTES);
 
                 LLVMValueRef[] args = new LLVMValueRef[numArgs];
                 for (int i = 0; i < numArgs; ++i) {
@@ -2304,15 +2318,15 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
         public Variable emitLoad(LIRKind kind, Value address, LIRFrameState state, MemoryOrderMode memoryOrder, MemoryExtendKind extendKind, MemoryAccessInfo accessInfo) {
             assert extendKind.isNotExtended();
             assert memoryOrder != MemoryOrderMode.RELEASE && memoryOrder != MemoryOrderMode.RELEASE_ACQUIRE;
-            int alignment = provenAlignment(getMemoryAccessSize(kind), accessInfo, isObjectAddress(address));
+            int alignment = provenAlignment(getMemoryAccessSize(kind), accessInfo, isObjectAddress(address), memoryOrder);
             LLVMValueRef load;
             if (isReferenceKind(kind)) {
-                LLVMValueRef loadedBits = buildLoad(address, getMemoryAccessType(kind), getMemoryAccessSize(kind), alignment);
+                LLVMValueRef loadedBits = buildLoad(address, getMemoryAccessType(kind), getMemoryAccessSize(kind), alignment, memoryOrder);
                 LLVMValueRef loadedReference = builder.buildIntToPtr(buildIntegerResize(loadedBits, LLVMIRBuilder.integerTypeWidth(builder.wordType())), builder.objectType(isCompressedReferenceMemory(
                                 kind)));
                 load = buildReferenceValue(loadedReference, getType(kind), false);
             } else {
-                load = buildLoad(address, getType(kind), getMemoryAccessSize(kind), alignment);
+                load = buildLoad(address, getType(kind), getMemoryAccessSize(kind), alignment, memoryOrder);
             }
             if (memoryOrder == MemoryOrderMode.ACQUIRE || memoryOrder == MemoryOrderMode.VOLATILE) {
                 /*
@@ -2324,10 +2338,17 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
             return new LLVMVariable(load);
         }
 
-        private LLVMValueRef buildLoad(Value address, LLVMTypeRef type, int sizeInBytes, int alignment) {
+        private LLVMValueRef buildLoad(Value address, LLVMTypeRef type, int sizeInBytes, int alignment, MemoryOrderMode memoryOrder) {
+            boolean atomic = isAtomic(memoryOrder, sizeInBytes);
             LLVMPendingSpecialRegisterRead pendingRead = asPendingSpecialRegisterRead(address);
-            if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset()) {
+            if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset() && !atomic) {
                 return buildInlineLoad(pendingRead.getRegisterName(), pendingRead.getConstantOffset(), type, sizeInBytes);
+            }
+            if (atomic) {
+                // Opaque orders nothing, so it takes the weakest ordering that is still atomic.
+                return memoryOrder == MemoryOrderMode.OPAQUE
+                                ? builder.buildMonotonicLoad(getVal(address), type, alignment)
+                                : builder.buildAcquireLoad(getVal(address), type, alignment);
             }
             return builder.buildAlignedLoad(getVal(address), type, alignment);
         }
@@ -2356,15 +2377,25 @@ public class LLVMGenerator extends CoreProvidersDelegate implements LIRGenerator
                 storeType = valueType;
             }
             int accessSize = getMemoryAccessSize(kind);
-            int alignment = provenAlignment(accessSize, accessInfo, isObjectAddress(addr));
+            int alignment = provenAlignment(accessSize, accessInfo, isObjectAddress(addr), memoryOrder);
+            boolean atomic = isAtomic(memoryOrder, accessSize);
             LLVMPendingSpecialRegisterRead pendingRead = asPendingSpecialRegisterRead(addr);
-            if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset()) {
+            if (pendingRead != null && pendingRead.useFixedRegisterAccess() && pendingRead.hasConstantOffset() && !atomic) {
                 buildInlineStore(pendingRead.getRegisterName(), pendingRead.getConstantOffset(), castedValue, accessSize);
             } else {
                 LLVMValueRef address = getVal(addr);
                 LLVMTypeRef addressType = LLVMIRBuilder.typeOf(address);
                 LLVMValueRef castedAddress = builder.buildBitcast(address, builder.pointerType(storeType, LLVMIRBuilder.isObjectType(addressType), false));
-                builder.buildAlignedStore(castedValue, castedAddress, alignment);
+                if (atomic) {
+                    // Opaque orders nothing, so it takes the weakest ordering that is still atomic.
+                    if (memoryOrder == MemoryOrderMode.OPAQUE) {
+                        builder.buildMonotonicStore(castedValue, castedAddress, alignment);
+                    } else {
+                        builder.buildReleaseStore(castedValue, castedAddress, alignment);
+                    }
+                } else {
+                    builder.buildAlignedStore(castedValue, castedAddress, alignment);
+                }
             }
 
             if (memoryOrder == MemoryOrderMode.VOLATILE) {

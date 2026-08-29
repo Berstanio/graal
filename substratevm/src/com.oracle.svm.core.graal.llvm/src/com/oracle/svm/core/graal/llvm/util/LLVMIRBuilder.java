@@ -1449,10 +1449,37 @@ public class LLVMIRBuilder implements AutoCloseable {
         LLVM.LLVMSetAlignment(store, alignment);
     }
 
-    public void buildVolatileStore(LLVMValueRef value, LLVMValueRef address, int alignment) {
+    public void buildReleaseStore(LLVMValueRef value, LLVMValueRef address, int alignment) {
+        buildAtomicStore(value, address, alignment, LLVM.LLVMAtomicOrderingRelease);
+    }
+
+    public void buildMonotonicStore(LLVMValueRef value, LLVMValueRef address, int alignment) {
+        buildAtomicStore(value, address, alignment, LLVM.LLVMAtomicOrderingMonotonic);
+    }
+
+    private void buildAtomicStore(LLVMValueRef value, LLVMValueRef address, int alignment, int ordering) {
         LLVMValueRef store = LLVM.LLVMBuildStore(builder, value, address);
-        LLVM.LLVMSetOrdering(store, LLVM.LLVMAtomicOrderingRelease);
+        LLVM.LLVMSetOrdering(store, ordering);
         LLVM.LLVMSetAlignment(store, alignment);
+    }
+
+    public LLVMValueRef buildAcquireLoad(LLVMValueRef address, LLVMTypeRef type, int alignment) {
+        return buildAtomicLoad(address, type, alignment, LLVM.LLVMAtomicOrderingAcquire);
+    }
+
+    public LLVMValueRef buildMonotonicLoad(LLVMValueRef address, LLVMTypeRef type, int alignment) {
+        return buildAtomicLoad(address, type, alignment, LLVM.LLVMAtomicOrderingMonotonic);
+    }
+
+    private LLVMValueRef buildAtomicLoad(LLVMValueRef address, LLVMTypeRef type, int alignment, int ordering) {
+        // Objects should go through buildLoadHelper
+        assert !isObjectType(type) : dumpTypes("atomic load of an object reference", type);
+        LLVMTypeRef addressType = LLVM.LLVMTypeOf(address);
+        LLVMValueRef castedAddress = buildBitcast(address, pointerType(type, isObjectType(addressType), false));
+        LLVMValueRef load = LLVM.LLVMBuildLoad(builder, castedAddress, DEFAULT_INSTR_NAME);
+        LLVM.LLVMSetOrdering(load, ordering);
+        LLVM.LLVMSetAlignment(load, alignment);
+        return load;
     }
 
     public LLVMValueRef buildAlloca(LLVMTypeRef type) {
