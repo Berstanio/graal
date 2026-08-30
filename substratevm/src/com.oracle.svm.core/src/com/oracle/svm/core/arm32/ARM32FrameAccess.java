@@ -28,6 +28,9 @@ import static com.oracle.svm.shared.Uninterruptible.CALLED_FROM_UNINTERRUPTIBLE_
 
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
+import org.graalvm.nativeimage.c.function.CodePointer;
+import org.graalvm.word.Pointer;
+import org.graalvm.word.UnsignedWord;
 
 import com.oracle.svm.core.FrameAccess;
 import com.oracle.svm.core.SubstrateTarget;
@@ -47,5 +50,12 @@ public class ARM32FrameAccess extends FrameAccess {
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     protected int getReturnAddressSize() {
         return SubstrateTarget.getWordSize();
+    }
+
+    @Override
+    @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
+    public CodePointer unsafeReadReturnAddress(Pointer sourceSp) {
+        CodePointer returnAddress = super.unsafeReadReturnAddress(sourceSp);
+        return (CodePointer) ((UnsignedWord) returnAddress).and(~ARM32.INSTRUCTION_SET_STATE_BIT);
     }
 }

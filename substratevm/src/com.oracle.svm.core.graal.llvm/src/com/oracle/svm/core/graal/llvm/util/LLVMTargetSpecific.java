@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import jdk.graal.compiler.core.common.NumUtil;
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
@@ -60,6 +61,10 @@ import jdk.vm.ci.code.CPUFeatureName;
 public interface LLVMTargetSpecific {
     static LLVMTargetSpecific get() {
         return ImageSingletons.lookup(LLVMTargetSpecific.class);
+    }
+
+    default long getReturnAddressMask() {
+        return NumUtil.getNbitNumberLong(SubstrateTarget.getWordBits());
     }
 
     /**
@@ -738,12 +743,27 @@ class LLVMARM32TargetSpecificFeature implements InternalFeature {
         }
 
         private static boolean isLoadStoreImmediate(int offset, int sizeInBytes) {
+            return switch (CPUTypeARM32.getSelectedInstructionSet()) {
+                case A32 -> isA32LoadStoreImmediate(offset, sizeInBytes);
+                case T32 -> isT32LoadStoreImmediate(offset, sizeInBytes);
+            };
+        }
+
+        private static boolean isA32LoadStoreImmediate(int offset, int sizeInBytes) {
             int limit = switch (sizeInBytes) {
                 case Byte.BYTES, Integer.BYTES -> 4095;
                 case Short.BYTES, Long.BYTES -> 255;
                 default -> throw shouldNotReachHere("Unsupported access size: " + sizeInBytes); // ExcludeFromJacocoGeneratedReport
             };
             return offset >= -limit && offset <= limit;
+        }
+
+        private static boolean isT32LoadStoreImmediate(int offset, int sizeInBytes) {
+            return switch (sizeInBytes) {
+                case Byte.BYTES, Short.BYTES, Integer.BYTES -> offset >= -255 && offset <= 4095;
+                case Long.BYTES -> offset % 4 == 0 && offset >= -1020 && offset <= 1020;
+                default -> throw shouldNotReachHere("Unsupported access size: " + sizeInBytes); // ExcludeFromJacocoGeneratedReport
+            };
         }
 
         private static String loadOffsetMagnitudeInlineAsm(String register, int offset) {
@@ -767,7 +787,15 @@ class LLVMARM32TargetSpecificFeature implements InternalFeature {
 
         @Override
         public String getJavaFrameAnchorIPInlineAssembly() {
-            return "ADR $0, .+4";
+            return switch (CPUTypeARM32.getSelectedInstructionSet()) {
+                case A32 -> "ADR $0, .+4";
+                case T32 -> "ADR.W $0, .+4";
+            };
+        }
+
+        @Override
+        public long getReturnAddressMask() {
+            return LLVMTargetSpecific.super.getReturnAddressMask() & ~ARM32.INSTRUCTION_SET_STATE_BIT;
         }
 
         @Override

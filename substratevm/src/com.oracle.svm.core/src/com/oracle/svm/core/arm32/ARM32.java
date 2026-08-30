@@ -46,6 +46,8 @@ import jdk.vm.ci.meta.PlatformKind;
  */
 public class ARM32 extends Architecture {
 
+    public static final int INSTRUCTION_SET_STATE_BIT = 0b1;
+
     public static final RegisterCategory CPU = new RegisterCategory("CPU");
 
     // General purpose core registers, AAPCS names.

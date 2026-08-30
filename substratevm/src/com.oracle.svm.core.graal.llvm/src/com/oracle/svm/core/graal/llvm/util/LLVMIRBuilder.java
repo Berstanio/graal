@@ -1501,7 +1501,9 @@ public class LLVMIRBuilder implements AutoCloseable {
 
     public LLVMValueRef buildReturnAddress(LLVMValueRef level) {
         LLVMTypeRef returnAddressType = functionType(rawPointerType(), intType());
-        return buildIntrinsicCall("llvm.returnaddress", returnAddressType, level);
+        LLVMValueRef returnAddress = buildIntrinsicCall("llvm.returnaddress", returnAddressType, level);
+        long mask = LLVMTargetSpecific.get().getReturnAddressMask();
+        return buildIntToPtr(buildAnd(buildPtrToInt(returnAddress), constantWord(mask)), rawPointerType());
     }
 
     public LLVMValueRef buildFrameAddress(LLVMValueRef level) {
