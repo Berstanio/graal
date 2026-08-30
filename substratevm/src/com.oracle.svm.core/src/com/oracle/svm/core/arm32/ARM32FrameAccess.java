@@ -54,8 +54,13 @@ public class ARM32FrameAccess extends FrameAccess {
 
     @Override
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
+    public CodePointer toCodeAddress(CodePointer codePointer) {
+        return (CodePointer) ((UnsignedWord) codePointer).and(~ARM32.INSTRUCTION_SET_STATE_BIT);
+    }
+
+    @Override
+    @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     public CodePointer unsafeReadReturnAddress(Pointer sourceSp) {
-        CodePointer returnAddress = super.unsafeReadReturnAddress(sourceSp);
-        return (CodePointer) ((UnsignedWord) returnAddress).and(~ARM32.INSTRUCTION_SET_STATE_BIT);
+        return toCodeAddress(super.unsafeReadReturnAddress(sourceSp));
     }
 }

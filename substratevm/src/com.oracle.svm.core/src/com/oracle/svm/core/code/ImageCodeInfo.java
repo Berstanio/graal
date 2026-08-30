@@ -35,6 +35,7 @@ import org.graalvm.word.ComparableWord;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.impl.Word;
 
+import com.oracle.svm.core.FrameAccess;
 import com.oracle.svm.core.c.NonmovableArray;
 import com.oracle.svm.core.c.NonmovableArrays;
 import com.oracle.svm.core.c.NonmovableObjectArray;
@@ -109,7 +110,7 @@ public class ImageCodeInfo {
     protected static void prepareCodeInfo0(ImageCodeInfo imageCodeInfo, CodeInfoImpl infoImpl, CodeInfo next) {
         assert infoImpl.getCodeStart().isNull() : "already initialized";
         infoImpl.setObjectFields(NonmovableArrays.fromImageHeap(imageCodeInfo.objectFields));
-        infoImpl.setCodeStart(imageCodeInfo.codeStart);
+        infoImpl.setCodeStart(imageCodeInfo.getCodeStart());
         infoImpl.setCodeSize(imageCodeInfo.codeSize);
         infoImpl.setDataOffset(imageCodeInfo.dataOffset);
         infoImpl.setDataSize(imageCodeInfo.dataSize);
@@ -155,7 +156,7 @@ public class ImageCodeInfo {
      */
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public CodePointer getCodeStart() {
-        return codeStart;
+        return FrameAccess.singleton().toCodeAddress(codeStart);
     }
 
     @Platforms(Platform.HOSTED_ONLY.class)

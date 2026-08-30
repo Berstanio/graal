@@ -67,6 +67,11 @@ public abstract class FrameAccess {
     }
 
     @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
+    public CodePointer toCodeAddress(CodePointer codePointer) {
+        return codePointer;
+    }
+
+    @Uninterruptible(reason = CALLED_FROM_UNINTERRUPTIBLE_CODE, mayBeInlined = true)
     public CodePointer readReturnAddress(IsolateThread thread, Pointer sourceSp) {
         verifyReturnAddressWithinJavaStack(thread, sourceSp);
         return unsafeReadReturnAddress(sourceSp);
