@@ -42,6 +42,7 @@ import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.SubstrateTarget;
 import com.oracle.svm.core.arm32.ARM32;
 import com.oracle.svm.core.feature.InternalFeature;
+import com.oracle.svm.hosted.util.CPUTypeARM32;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMRelocationIteratorRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMSectionIteratorRef;
 import com.oracle.svm.shadowed.org.bytedeco.llvm.LLVM.LLVMSymbolIteratorRef;
@@ -851,9 +852,16 @@ class LLVMARM32TargetSpecificFeature implements InternalFeature {
         @Override
         public String getTargetTriple() {
             if (Platform.includedIn(Platform.LINUX.class)) {
-                return "armv7-unknown-linux-gnueabihf";
+                return getTripleArchName() + "-unknown-linux-gnueabihf";
             }
             throw shouldNotReachHere("Unexpected target for the ARM32 LLVM backend: " + ImageSingletons.lookup(Platform.class).toString());
+        }
+
+        private static String getTripleArchName() {
+            return switch (CPUTypeARM32.getSelectedInstructionSet()) {
+                case A32 -> "armv7";
+                case T32 -> "thumbv7";
+            };
         }
     }
 }

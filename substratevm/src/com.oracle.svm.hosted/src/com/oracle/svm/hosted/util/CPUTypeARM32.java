@@ -52,25 +52,37 @@ import com.oracle.svm.shared.util.StringUtil;
  * Options</a>.
  */
 public enum CPUTypeARM32 implements CPUType {
-    ARMV7_A("armv7-a", VFPV3, THUMB2),
-    ARMV7_A_NEON("armv7-a+neon", ARMV7_A, VFPV3_D32, NEON),
-    ARMV7VE("armv7ve", ARMV7_A, IDIVA, IDIVT),
-    ARMV7VE_NEON("armv7ve+neon", ARMV7VE, VFPV3_D32, NEON),
+    ARMV7_A("armv7-a", InstructionSet.A32, VFPV3, THUMB2),
+    ARMV7_A_NEON("armv7-a+neon", InstructionSet.A32, ARMV7_A, VFPV3_D32, NEON),
+    ARMV7VE("armv7ve", InstructionSet.A32, ARMV7_A, IDIVA, IDIVT),
+    ARMV7VE_NEON("armv7ve+neon", InstructionSet.A32, ARMV7VE, VFPV3_D32, NEON),
+
+    THUMBV7_A("thumbv7-a", InstructionSet.T32, ARMV7_A),
+    THUMBV7_A_NEON("thumbv7-a+neon", InstructionSet.T32, ARMV7_A_NEON),
+    THUMBV7VE("thumbv7ve", InstructionSet.T32, ARMV7VE),
+    THUMBV7VE_NEON("thumbv7ve+neon", InstructionSet.T32, ARMV7VE_NEON),
 
     // Special symbols
-    COMPATIBILITY(NativeImageOptions.MICRO_ARCHITECTURE_COMPATIBILITY, ARMV7_A);
+    COMPATIBILITY(NativeImageOptions.MICRO_ARCHITECTURE_COMPATIBILITY, InstructionSet.A32, ARMV7_A);
+
+    public enum InstructionSet {
+        A32,
+        T32
+    }
 
     private final String name;
     private final CPUTypeARM32 parent;
+    private final InstructionSet instructionSet;
     private final EnumSet<CPUFeature> specificFeatures;
 
-    CPUTypeARM32(String cpuTypeName, CPUFeature... features) {
-        this(cpuTypeName, null, features);
+    CPUTypeARM32(String cpuTypeName, InstructionSet instructionSet, CPUFeature... features) {
+        this(cpuTypeName, instructionSet, null, features);
     }
 
-    CPUTypeARM32(String cpuTypeName, CPUTypeARM32 cpuTypeParentOrNull, CPUFeature... features) {
+    CPUTypeARM32(String cpuTypeName, InstructionSet cpuTypeInstructionSet, CPUTypeARM32 cpuTypeParentOrNull, CPUFeature... features) {
         name = cpuTypeName;
         parent = cpuTypeParentOrNull;
+        instructionSet = cpuTypeInstructionSet;
         specificFeatures = features.length > 0 ? EnumSet.copyOf(List.of(features)) : EnumSet.noneOf(CPUFeature.class);
         assert parent == null || parent.getFeatures().stream().noneMatch(specificFeatures::contains) : "duplicate features detected but not allowed";
     }
@@ -90,6 +102,10 @@ public enum CPUTypeARM32 implements CPUType {
         return specificFeatures.stream().map(Enum::name).collect(Collectors.joining(" + "));
     }
 
+    public InstructionSet getInstructionSet() {
+        return instructionSet;
+    }
+
     public EnumSet<CPUFeature> getFeatures() {
         if (parent == null) {
             /* A copy: callers (createTarget) add the -H:CPUFeatures values to the result. */
@@ -105,14 +121,24 @@ public enum CPUTypeARM32 implements CPUType {
 
     @Platforms(Platform.HOSTED_ONLY.class)
     public static EnumSet<CPUFeature> getSelectedFeatures() {
+        return getSelected().getFeatures();
+    }
+
+    @Platforms(Platform.HOSTED_ONLY.class)
+    public static InstructionSet getSelectedInstructionSet() {
+        return getSelected().getInstructionSet();
+    }
+
+    @Platforms(Platform.HOSTED_ONLY.class)
+    private static CPUTypeARM32 getSelected() {
         String value = NativeImageOptions.MicroArchitecture.getValue();
         if (value == null) {
             value = getDefaultName();
         }
-        return getCPUFeaturesForArch(value);
+        return typeOfOrFail(value);
     }
 
-    public static EnumSet<CPUFeature> getCPUFeaturesForArch(String marchValue) {
+    private static CPUTypeARM32 typeOfOrFail(String marchValue) {
         CPUTypeARM32 value = typeOf(marchValue);
         if (value == null) {
             throw UserError.abort("Unsupported architecture '%s'. Please adjust '%s'. On ARM32, only %s are available.",
@@ -120,7 +146,7 @@ public enum CPUTypeARM32 implements CPUType {
                             SubstrateOptionsParser.commandArgument(NativeImageOptions.MicroArchitecture, marchValue),
                             StringUtil.joinSingleQuoted(CPUType.toNames(values())));
         }
-        return value.getFeatures();
+        return value;
     }
 
     private static CPUTypeARM32 typeOf(String marchValue) {
